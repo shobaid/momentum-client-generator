@@ -29,6 +29,29 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: var(--font); background: var(--bg); color: var(--text); min-height: 100vh; }
 
+
+/* Tabs */
+.tabs { display: flex; gap: 2px; background: var(--bg); border-bottom: 1px solid var(--border); padding: 0 2rem; }
+.tab-btn { font-family: var(--font); font-size: 13px; font-weight: 500; padding: 14px 18px; border: none; background: none; cursor: pointer; color: var(--muted); border-bottom: 2px solid transparent; transition: all 0.15s; margin-bottom: -1px; }
+.tab-btn:hover { color: var(--text); }
+.tab-btn.active { color: var(--blue); border-bottom-color: var(--blue); font-weight: 600; }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+/* Env form specific */
+textarea.env-input { width: 100%; background: var(--bg); border: 1px solid var(--border2); border-radius: var(--radius-sm); padding: 9px 12px; font-family: var(--mono); font-size: 12px; color: var(--text); outline: none; resize: vertical; min-height: 120px; line-height: 1.6; transition: border-color 0.15s, box-shadow 0.15s; }
+textarea.env-input:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-light); }
+.secret-row { display: flex; align-items: center; gap: 8px; }
+.secret-row input { flex: 1; }
+.reveal-btn { background: var(--bg); border: 1px solid var(--border2); border-radius: var(--radius-sm); padding: 9px 12px; font-size: 11px; font-family: var(--mono); cursor: pointer; white-space: nowrap; color: var(--muted); transition: all 0.15s; }
+.reveal-btn:hover { background: var(--border); color: var(--text); }
+.gen-btn { background: none; border: 1px solid var(--border2); border-radius: var(--radius-sm); padding: 6px 12px; font-size: 11px; font-family: var(--mono); cursor: pointer; color: var(--muted); transition: all 0.15s; white-space: nowrap; }
+.gen-btn:hover { background: var(--blue-light); color: var(--blue); border-color: var(--blue); }
+.key-note { background: #fefce8; border: 1px solid #fde68a; border-radius: var(--radius-sm); padding: 10px 14px; font-size: 12px; color: var(--amber); margin-bottom: 14px; line-height: 1.5; }
+.env-preview { background: #1e293b; border-radius: var(--radius-sm); padding: 1rem 1.25rem; margin-top: 1.25rem; display: none; }
+.env-preview-title { font-size: 10px; font-family: var(--mono); color: #64748b; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; }
+.env-preview pre { font-family: var(--mono); font-size: 11px; color: #86efac; line-height: 1.8; white-space: pre-wrap; word-break: break-all; }
+
 /* Login */
 .login-wrap { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 1rem; }
 .login-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 2.5rem; width: 100%; max-width: 380px; text-align: center; }
@@ -136,6 +159,25 @@ input[type="color"] { width: 46px; height: 36px; padding: 3px 4px; border: 1px s
   .container { padding: 1rem; }
   .header { padding: 0 1rem; }
 }
+
+/* Tabs */
+.tabs { display: flex; gap: 0; background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 2rem; }
+.tab-btn { font-family: var(--font); font-size: 13px; font-weight: 500; padding: 14px 18px; border: none; background: none; cursor: pointer; color: var(--muted); border-bottom: 2px solid transparent; transition: all 0.15s; margin-bottom: -1px; }
+.tab-btn:hover { color: var(--text); }
+.tab-btn.active { color: var(--blue); border-bottom-color: var(--blue); font-weight: 600; }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+textarea.env-input { width: 100%; background: var(--bg); border: 1px solid var(--border2); border-radius: var(--radius-sm); padding: 9px 12px; font-family: var(--mono); font-size: 11.5px; color: var(--text); outline: none; resize: vertical; min-height: 130px; line-height: 1.6; transition: border-color 0.15s; }
+textarea.env-input:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-light); }
+.secret-row { display: flex; align-items: center; gap: 8px; }
+.secret-row input { flex: 1; }
+.reveal-btn { background: var(--bg); border: 1px solid var(--border2); border-radius: var(--radius-sm); padding: 9px 10px; font-size: 11px; font-family: var(--mono); cursor: pointer; white-space: nowrap; color: var(--muted); }
+.reveal-btn:hover { background: var(--border); }
+.gen-btn { background: var(--blue-light); border: 1px solid var(--blue); border-radius: var(--radius-sm); padding: 9px 10px; font-size: 11px; font-family: var(--mono); cursor: pointer; color: var(--blue); white-space: nowrap; }
+.key-note { background: #fefce8; border: 1px solid #fde68a; border-radius: var(--radius-sm); padding: 10px 14px; font-size: 12px; color: var(--amber); margin-bottom: 14px; line-height: 1.5; }
+.env-preview { background: #1e293b; border-radius: var(--radius-sm); padding: 1rem 1.25rem; margin-top: 1.25rem; }
+.env-preview-title { font-size: 10px; font-family: var(--mono); color: #64748b; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; }
+.env-preview pre { font-family: var(--mono); font-size: 11px; color: #86efac; line-height: 1.8; white-space: pre-wrap; word-break: break-all; }
 </style>
 </head>
 <body>
@@ -165,6 +207,24 @@ input[type="color"] { width: 46px; height: 36px; padding: 3px 4px; border: 1px s
     </div>
   </header>
 
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab-btn active" id="tab-generator" onclick="switchTab('generator')">
+      ⚡ Dashboard Generator
+    </button>
+    <button class="tab-btn" id="tab-env" onclick="switchTab('env')">
+      🔑 Create .env File
+    </button>
+  </div>
+
+  <!-- Tab: Generator -->
+  <div class="tab-panel active" id="panel-generator">
+  <div class="tabs">
+    <button class="tab-btn active" id="tab-generator" onclick="switchTab('generator')">⚡ Dashboard Generator</button>
+    <button class="tab-btn" id="tab-env" onclick="switchTab('env')">🔑 Create .env File</button>
+  </div>
+
+  <div class="tab-panel active" id="panel-generator">
   <div class="container">
     <div class="page-title">New Client Dashboard</div>
     <div class="page-sub">Fill in the client details, select data sources and features, then generate a ready-to-run zip.</div>
@@ -583,6 +643,247 @@ function resetForm() {
   document.getElementById('successState').style.display = 'none';
   document.getElementById('generateForm').style.display = 'block';
 }
+// ── Tab switching ─────────────────────────────────────────────────────────
+function switchTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  document.getElementById('panel-' + tab).classList.add('active');
+}
+
+// ── Toggle password reveal ─────────────────────────────────────────────────
+function toggleReveal(id, btn) {
+  const el = document.getElementById(id);
+  if (el.type === 'password') { el.type = 'text'; btn.textContent = 'Hide'; }
+  else { el.type = 'password'; btn.textContent = 'Show'; }
+}
+
+// ── Generate session secret ────────────────────────────────────────────────
+function generateSecret() {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  const secret = Array.from({length: 32}, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+  document.getElementById('env-sessionSecret').value = secret;
+}
+
+// ── Generate .env file ─────────────────────────────────────────────────────
+function generateEnv() {
+  const clientName = document.getElementById('env-clientName').value.trim();
+  const saEmail = document.getElementById('env-saEmail').value.trim();
+  const privateKey = document.getElementById('env-privateKey').value.trim();
+
+  if (!clientName) { showEnvError('Client name is required'); return; }
+  if (!saEmail) { showEnvError('Service account email is required'); return; }
+  if (!privateKey) { showEnvError('Private key is required'); return; }
+
+  // Format private key — handle both \\n literal and real newlines
+  let formattedKey = privateKey
+    .replace(/\\n/g, '\n')  // convert literal \n to real newlines
+    .trim();
+
+  // Ensure it has proper BEGIN/END markers
+  if (!formattedKey.includes('BEGIN PRIVATE KEY')) {
+    showEnvError('Private key doesn\'t look right — make sure you copied the entire key including BEGIN/END lines');
+    return;
+  }
+
+  const slug = clientName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  const wcToken = document.getElementById('env-wcToken').value.trim();
+  const wcSecret = document.getElementById('env-wcSecret').value.trim();
+  const supabaseUrl = document.getElementById('env-supabaseUrl').value.trim();
+  const supabaseKey = document.getElementById('env-supabaseKey').value.trim();
+  const oauthId = document.getElementById('env-oauthId').value.trim();
+  const oauthSecret = document.getElementById('env-oauthSecret').value.trim();
+  const redirectUri = document.getElementById('env-redirectUri').value.trim() || 'http://localhost:3000/auth/callback';
+  const sessionSecret = document.getElementById('env-sessionSecret').value.trim() || (()=>{ const c='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'; return Array.from({length:32},()=>c[Math.floor(Math.random()*c.length)]).join(''); })();
+
+  // Build .env content
+  let envContent = `# ${clientName} Dashboard\n# Generated by Momentum Digital Dashboard Generator\n# Created: ${new Date().toLocaleDateString('en-US', {month:'long',day:'numeric',year:'numeric'})}\n\n`;
+  envContent += `# Google Service Account\n`;
+  envContent += `GOOGLE_SERVICE_ACCOUNT_EMAIL=${saEmail}\n`;
+  envContent += `GOOGLE_PRIVATE_KEY="${formattedKey}"\n`;
+
+  if (wcToken || wcSecret) {
+    envContent += `\n# WhatConverts\n`;
+    if (wcToken) envContent += `WHATCONVERTS_TOKEN=${wcToken}\n`;
+    if (wcSecret) envContent += `WHATCONVERTS_SECRET=${wcSecret}\n`;
+  }
+
+  if (supabaseUrl || supabaseKey || oauthId || oauthSecret) {
+    envContent += `\n# Supabase (Document Review)\n`;
+    if (supabaseUrl) envContent += `SUPABASE_URL=${supabaseUrl}\n`;
+    if (supabaseKey) envContent += `SUPABASE_SERVICE_KEY=${supabaseKey}\n`;
+    envContent += `\n# Google OAuth (Document Review)\n`;
+    if (oauthId) envContent += `GOOGLE_CLIENT_ID=${oauthId}\n`;
+    if (oauthSecret) envContent += `GOOGLE_CLIENT_SECRET=${oauthSecret}\n`;
+    envContent += `REDIRECT_URI=${redirectUri}\n`;
+    envContent += `SESSION_SECRET=${sessionSecret}\n`;
+  } else {
+    envContent += `\n# Session\nSESSION_SECRET=${sessionSecret}\n`;
+  }
+
+  // Download
+  const blob = new Blob([envContent], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  document.getElementById('envDownloadBtn').href = url;
+  document.getElementById('envDownloadBtn').download = `${slug}.env`;
+  document.getElementById('envSuccessTitle').textContent = `${clientName} .env ready!`;
+
+  // Preview (hide private key)
+  const previewContent = envContent.replace(/GOOGLE_PRIVATE_KEY="[^"]*"/s, 'GOOGLE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\\n[hidden for security]\\n-----END PRIVATE KEY-----"');
+  document.getElementById('envPreviewContent').textContent = previewContent;
+
+  document.getElementById('envGenerateForm').style.display = 'none';
+  document.getElementById('envSuccessState').style.display = 'block';
+
+  // Auto-download
+  const a = document.createElement('a'); a.href = url; a.download = `${slug}.env`; a.click();
+}
+
+function showEnvError(msg) {
+  const el = document.getElementById('envErrorMsg');
+  el.textContent = '⚠ ' + msg; el.style.display = 'block';
+  el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  setTimeout(() => el.style.display = 'none', 6000);
+}
+
+function resetEnvForm() {
+  document.getElementById('envSuccessState').style.display = 'none';
+  document.getElementById('envGenerateForm').style.display = 'block';
+}
 </script>
+
+  </div><!-- close generator container -->
+  </div><!-- close panel-generator -->
+
+  <!-- .env Creator Tab -->
+  <div class="tab-panel" id="panel-env">
+  <div class="container">
+    <div class="page-title">Create .env File</div>
+    <div class="page-sub">Fill in the credentials for a client. Downloads a correctly formatted .env file ready to send to Melissa.</div>
+
+    <div class="error-msg" id="envErrorMsg"></div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon" style="background:#eff6ff">🏷️</div>
+        <div><div class="card-title">Client</div><div class="card-sub">Which client is this for?</div></div>
+      </div>
+      <div class="card-body">
+        <div class="field">
+          <label>Client Name *</label>
+          <input type="text" id="env-clientName" placeholder="e.g. Penn Pain Physicians">
+          <div class="hint">Used to name the file — e.g. pennpain.env</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon" style="background:#f0fdf4">🔑</div>
+        <div><div class="card-title">Google Service Account</div><div class="card-sub">From the JSON key file downloaded in Google Cloud</div></div>
+      </div>
+      <div class="card-body">
+        <div class="key-note">💡 Open the JSON key file in any text editor. Copy <strong>client_email</strong> and <strong>private_key</strong> values from it.</div>
+        <div class="field">
+          <label>Service Account Email *</label>
+          <input type="text" id="env-saEmail" placeholder="name@project.iam.gserviceaccount.com" style="font-family:var(--mono)">
+        </div>
+        <div class="field">
+          <label>Private Key *</label>
+          <div class="hint" style="margin-bottom:6px">Paste the entire value including -----BEGIN PRIVATE KEY----- and -----END PRIVATE KEY-----</div>
+          <textarea class="env-input" id="env-privateKey" placeholder="-----BEGIN PRIVATE KEY-----&#10;MIIEvgIBADANBgkq...&#10;-----END PRIVATE KEY-----"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon" style="background:#fefce8">📞</div>
+        <div><div class="card-title">WhatConverts <span style="font-size:11px;font-weight:400;color:var(--muted)">(optional)</span></div><div class="card-sub">Leave blank if client doesn't use WhatConverts</div></div>
+      </div>
+      <div class="card-body">
+        <div class="field-row">
+          <div class="field">
+            <label>API Token</label>
+            <div class="secret-row"><input type="password" id="env-wcToken" placeholder="your_token" style="font-family:var(--mono)"><button class="reveal-btn" onclick="toggleReveal('env-wcToken',this)">Show</button></div>
+          </div>
+          <div class="field">
+            <label>API Secret</label>
+            <div class="secret-row"><input type="password" id="env-wcSecret" placeholder="your_secret" style="font-family:var(--mono)"><button class="reveal-btn" onclick="toggleReveal('env-wcSecret',this)">Show</button></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon" style="background:#fdf4ff">🗄️</div>
+        <div><div class="card-title">Supabase + Google OAuth <span style="font-size:11px;font-weight:400;color:var(--muted)">(optional — Document Review only)</span></div></div>
+      </div>
+      <div class="card-body">
+        <div class="field-row">
+          <div class="field">
+            <label>Supabase URL</label>
+            <input type="url" id="env-supabaseUrl" placeholder="https://xxxx.supabase.co" style="font-family:var(--mono)">
+          </div>
+          <div class="field">
+            <label>Supabase Service Key</label>
+            <div class="secret-row"><input type="password" id="env-supabaseKey" placeholder="eyJ..." style="font-family:var(--mono)"><button class="reveal-btn" onclick="toggleReveal('env-supabaseKey',this)">Show</button></div>
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label>OAuth Client ID</label>
+            <input type="text" id="env-oauthId" placeholder="123456.apps.googleusercontent.com" style="font-family:var(--mono)">
+          </div>
+          <div class="field">
+            <label>OAuth Client Secret</label>
+            <div class="secret-row"><input type="password" id="env-oauthSecret" placeholder="GOCSPX-..." style="font-family:var(--mono)"><button class="reveal-btn" onclick="toggleReveal('env-oauthSecret',this)">Show</button></div>
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label>Redirect URI</label>
+            <input type="url" id="env-redirectUri" value="http://localhost:3000/auth/callback" style="font-family:var(--mono)">
+          </div>
+          <div class="field">
+            <label>Session Secret</label>
+            <div class="secret-row"><input type="text" id="env-sessionSecret" placeholder="auto-generated" style="font-family:var(--mono)"><button class="gen-btn" onclick="generateSecret()">Generate</button></div>
+            <div class="hint">Any random string — click Generate</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="generate-section">
+      <div id="envGenerateForm">
+        <div class="generate-title">Ready to create .env?</div>
+        <div class="generate-sub">We'll format the private key correctly (fixing line breaks) and download a .env file ready to drop into the dashboard folder.</div>
+        <button class="generate-btn" id="envGenerateBtn" onclick="generateEnv()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Download .env File
+        </button>
+      </div>
+      <div class="success" id="envSuccessState">
+        <div class="success-icon">✅</div>
+        <div class="success-title" id="envSuccessTitle">.env ready!</div>
+        <div class="success-sub">Send to Melissa via Slack DM. She places it in the dashboard folder alongside server.js — the filename must be exactly <strong>.env</strong></div>
+        <div>
+          <a class="download-btn" id="envDownloadBtn" href="#">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Download .env
+          </a>
+          <button class="another-btn" onclick="resetEnvForm()">Create another</button>
+        </div>
+        <div class="env-preview">
+          <div class="env-preview-title">Preview (private key hidden for security)</div>
+          <pre id="envPreviewContent"></pre>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- close env container -->
+  </div><!-- close panel-env -->
+
 </body>
 </html>
