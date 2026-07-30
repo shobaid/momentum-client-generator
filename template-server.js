@@ -129,9 +129,8 @@ app.get('/api/whatconverts/np-appointments', async (req, res) => {
     const { start_date, end_date } = req.query;
     const token = Buffer.from(`${process.env.WHATCONVERTS_TOKEN}:${process.env.WHATCONVERTS_SECRET}`).toString('base64');
 
-    const reqParams = { profile_id: WC_PROFILE, start_date, end_date, quotable: 'yes', per_page: 100 };
+    const reqParams = { profile_id: WC_PROFILE, start_date, end_date, quotable: 'yes', per_page: 100 }; // QUALIFIED_LABEL used in frontend
     console.log('NP appts request params:', JSON.stringify(reqParams));
-    // Fetch all quotable=yes leads (NP appointments)
     const response = await axios.get('https://app.whatconverts.com/api/v1/leads', {
       headers: { Authorization: `Basic ${token}` },
       params: reqParams
@@ -141,7 +140,6 @@ app.get('/api/whatconverts/np-appointments', async (req, res) => {
     const total = response.data.total_leads || 0;
     console.log('NP appts response: total=', total, 'leads count=', leads.length, 'first lead quotable=', leads[0]?.quotable);
 
-    // Group by lead source
     const sourceMap = {};
     leads.forEach(lead => {
       const source = lead.lead_source || lead.traffic_source || 'direct';
@@ -155,14 +153,12 @@ app.get('/api/whatconverts/np-appointments', async (req, res) => {
       sourceMap[key] = (sourceMap[key] || 0) + 1;
     });
 
-    // Group by lead type
     const typeMap = {};
     leads.forEach(lead => {
       const type = lead.lead_type || 'Other';
       typeMap[type] = (typeMap[type] || 0) + 1;
     });
 
-    // Group by date for trend
     const dateMap = {};
     leads.forEach(lead => {
       if (lead.date_created) {
@@ -173,7 +169,7 @@ app.get('/api/whatconverts/np-appointments', async (req, res) => {
 
     res.json({
       total,
-      leads: leads.slice(0, 20), // return top 20 for table
+      leads: leads.slice(0, 20),
       by_source: sourceMap,
       by_type: typeMap,
       by_date: dateMap
@@ -181,38 +177,54 @@ app.get('/api/whatconverts/np-appointments', async (req, res) => {
   } catch (e) {
     const errDetail = e.response?.data || e.message;
     console.error('NP appointments error:', e.response?.status, JSON.stringify(errDetail));
-    // Return empty gracefully so rest of dashboard still loads
     res.json({ error: e.message, total: 0, leads: [], by_source: {}, by_type: {}, by_date: {} });
   }
 });
 
-// ── Google Sheets proxy (Ad Spend) ─────────────────────────────────────────
+// ── Google Sheets proxy ───────────────────────────────────────────────────
+// SHEET_COLUMNS is injected by the generator — do not edit manually
+const SHEET_COLUMNS = %%SHEET_COLUMNS%%;
+// QUALIFIED_LABEL is injected by the generator
+const QUALIFIED_LABEL = '%%QUALIFIED_LABEL%%';
+
 app.get('/api/adspend', async (req, res) => {
   try {
     const authClient = await gauth.getClient();
     const sheets = google.sheets({ version: 'v4', auth: authClient });
+    const colCount = SHEET_COLUMNS.length + 1; // +1 for Date column
+    const lastCol = String.fromCharCode(64 + colCount); // A=65, so col 1=B, col 2=C etc
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SHEET_ID,
-      range: `${SHEET_TAB}!A:B`
+      range: `${SHEET_TAB}!A:${lastCol}`
     });
 
     const rows = response.data.values || [];
-    if (rows.length < 2) return res.json({ rows: [], total: 0, latest: null });
+    if (rows.length < 2) return res.json({ rows: [], columns: SHEET_COLUMNS, latest: null });
 
-    // Skip header row
-    const data = rows.slice(1).map(row => ({
-      date: row[0] || '',
-      ad_spend: parseFloat((row[1] || '0').toString().replace(/[$,]/g, '')) || 0
-    })).filter(r => r.date);
+    // Skip header row — newest row is at top (row 2)
+    const data = rows.slice(1).map(row => {
+      const entry = { date: row[0] || '' };
+      SHEET_COLUMNS.forEach((col, i) => {
+        const raw = (row[i + 1] || '0').toString().replace(/[$,]/g, '');
+        entry[col.key] = col.type === 'currency' || col.type === 'number'
+          ? parseFloat(raw) || 0
+          : parseInt(raw.replace(/[^0-9]/g, '')) || 0;
+      });
+      return entry;
+    }).filter(r => r.date);
 
-    const total = data.reduce((sum, r) => sum + r.ad_spend, 0);
     const latest = data[0] || null;
 
-    res.json({ rows: data, total: Math.round(total * 100) / 100, latest });
+    // Build totals for each column
+    const totals = {};
+    SHEET_COLUMNS.forEach(col => {
+      totals[col.key] = Math.round(data.reduce((s, r) => s + (r[col.key] || 0), 0) * 100) / 100;
+    });
+
+    res.json({ rows: data, columns: SHEET_COLUMNS, latest, totals });
   } catch (e) {
     console.error('Sheets error:', e.message, e.response?.data || '');
-    // Return empty gracefully so dashboard still loads
-    res.json({ error: e.message, rows: [], total: 0, latest: null });
+    res.json({ error: e.message, rows: [], columns: SHEET_COLUMNS, latest: null, totals: {} });
   }
 });
 
