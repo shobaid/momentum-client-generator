@@ -297,6 +297,16 @@ textarea:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-lig
           <div class="feature-row" style="margin-top:8px">
             <div class="feature-info"><span style="font-size:18px">💰</span><div><div class="feature-name">Ad Spend Tracking</div><div class="feature-desc">Show ad spend KPI and chart from Google Sheets — requires Google Sheets</div></div></div>
             <button class="toggle" id="tog-adspend" onclick="toggleFeat('adspend')"></button>
+
+          <div class="feature-row" style="margin-top:8px">
+            <div class="feature-info"><span style="font-size:18px">📍</span><div><div class="feature-name">Google Business Profile</div><div class="feature-desc">GBP impressions, calls, directions, website clicks — exported from Agency Analytics to a gmb_data sheet tab</div></div></div>
+            <button class="toggle" id="tog-gmb" onclick="toggleFeat('gmb')"></button>
+          </div>
+
+          <div class="feature-row" style="margin-top:8px">
+            <div class="feature-info"><span style="font-size:18px">🔐</span><div><div class="feature-name">Dashboard Login</div><div class="feature-desc">Protect the dashboard with email/password login — requires Supabase</div></div></div>
+            <button class="toggle" id="tog-dashLogin" onclick="toggleFeat('dashLogin')"></button>
+          </div>
           </div>
 
         </div>
@@ -422,7 +432,7 @@ textarea:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-lig
 let pw = '';
 let logoB64 = null;
 const src = { ga4: true, gsc: true, wc: false, sheets: false };
-const feat = { docs: false, qualified: false, adspend: false };
+const feat = { docs: false, qualified: false, adspend: false, gmb: false, dashLogin: false };
 let sheetColCount = 0;
 
 // ── Auth ───────────────────────────────────────────────────────────────────
@@ -602,7 +612,8 @@ async function generateDashboard() {
     supabaseUrl: document.getElementById('g-supabaseUrl').value.trim(),
     redirectUri: document.getElementById('g-redirectUri').value.trim() || 'http://localhost:3000/auth/callback',
     useGA4: src.ga4, useGSC: src.gsc, useWC: src.wc, useSheets: src.sheets,
-    useDocs: feat.docs, useQualified: feat.qualified, useAdSpend: feat.adspend
+    useDocs: feat.docs, useQualified: feat.qualified, useAdSpend: feat.adspend,
+    useGMB: feat.gmb, useDashboardLogin: feat.dashLogin
   };
 
   try {
@@ -620,7 +631,7 @@ async function generateDashboard() {
     document.getElementById('genDownloadBtn').download = zipName;
     document.getElementById('genSuccessTitle').textContent = `${clientName} dashboard ready!`;
 
-    const sources = [src.ga4&&'GA4', src.gsc&&'GSC', src.wc&&'WhatConverts', src.sheets&&`Sheets (${sheetColumns.map(c=>c.label).join(', ')})`].filter(Boolean);
+    const sources = [src.ga4&&'GA4', src.gsc&&'GSC', src.wc&&'WhatConverts', src.sheets&&`Sheets (${sheetColumns.map(c=>c.label).join(', ')})`, feat.gmb&&'GMB', feat.dashLogin&&'Login'].filter(Boolean);
     document.getElementById('genFileList').innerHTML = `<div class="file-list-title">Sources: ${sources.join(' · ')}</div>${Object.keys(data.files).map(f=>`<div class="file-item">${f}</div>`).join('')}`;
     document.getElementById('genForm').style.display='none';
     document.getElementById('genSuccess').style.display='block';

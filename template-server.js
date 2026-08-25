@@ -7,6 +7,7 @@ const cookieParser = require('cookie-parser');
 const { GoogleAuth } = require('google-auth-library');
 const { google } = require('googleapis');
 const { createClient } = require('@supabase/supabase-js');
+const bcrypt = require('bcryptjs');
 const path = require('path');
 
 const app = express();
@@ -20,6 +21,7 @@ const WC_PROFILE = '148479';
 const SHEET_ID = '1cXnqHBu9OJXA-TIemxTAm8tkKNDOMbY8hWgWlpbi3P4';
 const SHEET_TAB = 'dashboard_data';
 const REVIEW_COOKIE = 'pp_reviewer';
+const DASH_COOKIE = '%%SLUG%%-dashboard';
 
 // ── Supabase ───────────────────────────────────────────────────────────────
 const supabase = createClient(
@@ -189,43 +191,128 @@ const QUALIFIED_LABEL = '%%QUALIFIED_LABEL%%';
 
 app.get('/api/adspend', async (req, res) => {
   try {
+    const { start_date, end_date } = req.query;
     const authClient = await gauth.getClient();
     const sheets = google.sheets({ version: 'v4', auth: authClient });
-    const colCount = SHEET_COLUMNS.length + 1; // +1 for Date column
-    const lastCol = String.fromCharCode(64 + colCount); // A=65, so col 1=B, col 2=C etc
+    // Columns: A=Date label, B=Week Start, C=Week End, then data columns
+    const colCount = SHEET_COLUMNS.length + 3; // +3 for Date, Week Start, Week End
+    const lastCol = String.fromCharCode(64 + colCount);
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SHEET_ID,
       range: `${SHEET_TAB}!A:${lastCol}`
     });
 
     const rows = response.data.values || [];
-    if (rows.length < 2) return res.json({ rows: [], columns: SHEET_COLUMNS, latest: null });
+    if (rows.length < 2) return res.json({ rows: [], columns: SHEET_COLUMNS, latest: null, totals: {} });
 
-    // Skip header row — newest row is at top (row 2)
+    // Skip header — A=date label, B=week_start, C=week_end, D+=data cols
     const data = rows.slice(1).map(row => {
-      const entry = { date: row[0] || '' };
+      const entry = { date: row[0] || '', week_start: row[1] || '', week_end: row[2] || '' };
       SHEET_COLUMNS.forEach((col, i) => {
-        const raw = (row[i + 1] || '0').toString().replace(/[$,]/g, '');
+        const raw = (row[i + 3] || '0').toString().replace(/[$,]/g, '');
         entry[col.key] = col.type === 'currency' || col.type === 'number'
           ? parseFloat(raw) || 0
           : parseInt(raw.replace(/[^0-9]/g, '')) || 0;
       });
       return entry;
-    }).filter(r => r.date);
+    }).filter(r => r.date && r.week_end);
 
-    const latest = data[0] || null;
+    // Filter by week_end falling within the selected date range
+    const filtered = (start_date && end_date)
+      ? data.filter(r => r.week_end >= start_date && r.week_end <= end_date)
+      : data;
 
-    // Build totals for each column
+    const latest = data[0] || null; // newest row at top
+
+    // Build totals for filtered rows only
     const totals = {};
     SHEET_COLUMNS.forEach(col => {
-      totals[col.key] = Math.round(data.reduce((s, r) => s + (r[col.key] || 0), 0) * 100) / 100;
+      totals[col.key] = Math.round(filtered.reduce((s, r) => s + (r[col.key] || 0), 0) * 100) / 100;
     });
 
-    res.json({ rows: data, columns: SHEET_COLUMNS, latest, totals });
+    res.json({ rows: filtered, all_rows: data, columns: SHEET_COLUMNS, latest, totals });
   } catch (e) {
     console.error('Sheets error:', e.message, e.response?.data || '');
     res.json({ error: e.message, rows: [], columns: SHEET_COLUMNS, latest: null, totals: {} });
   }
+});
+// ── Google Business Profile (via Google Sheets — exported from Agency Analytics) ──
+app.get('/api/gmb', async (req, res) => {
+  try {
+    const { start_date, end_date } = req.query;
+    const authClient = await gauth.getClient();
+    const sheets = google.sheets({ version: 'v4', auth: authClient });
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SHEET_ID,
+      range: 'gmb_data!A:J'
+    });
+    const rows = response.data.values || [];
+    if (rows.length < 2) return res.json({ rows: [], totals: {} });
+    const data = rows.slice(1).map(row => ({
+      date: row[0] || '',
+      impressions: parseInt((row[1] || '0').replace(/[^0-9]/g, '')) || 0,
+      interactions: parseInt((row[2] || '0').replace(/[^0-9]/g, '')) || 0,
+      website_clicks: parseInt((row[3] || '0').replace(/[^0-9]/g, '')) || 0,
+      calls: parseInt((row[4] || '0').replace(/[^0-9]/g, '')) || 0,
+      directions: parseInt((row[5] || '0').replace(/[^0-9]/g, '')) || 0,
+      impressions_desktop_maps: parseInt((row[6] || '0').replace(/[^0-9]/g, '')) || 0,
+      impressions_desktop_search: parseInt((row[7] || '0').replace(/[^0-9]/g, '')) || 0,
+      impressions_mobile_maps: parseInt((row[8] || '0').replace(/[^0-9]/g, '')) || 0,
+      impressions_mobile_search: parseInt((row[9] || '0').replace(/[^0-9]/g, '')) || 0
+    })).filter(r => r.date && r.date !== 'Date' && !(r.impressions === 0 && r.interactions === 0 && r.calls === 0));
+    const filtered = (start_date && end_date)
+      ? data.filter(r => r.date >= start_date && r.date <= end_date)
+      : data;
+    const totals = filtered.reduce((acc, row) => {
+      acc.impressions += row.impressions; acc.interactions += row.interactions;
+      acc.website_clicks += row.website_clicks; acc.calls += row.calls;
+      acc.directions += row.directions; acc.desktop_search += row.impressions_desktop_search;
+      acc.mobile_search += row.impressions_mobile_search;
+      acc.desktop_maps += row.impressions_desktop_maps;
+      acc.mobile_maps += row.impressions_mobile_maps;
+      return acc;
+    }, { impressions:0, interactions:0, website_clicks:0, calls:0, directions:0, desktop_search:0, mobile_search:0, desktop_maps:0, mobile_maps:0 });
+    res.json({ rows: filtered, totals });
+  } catch (e) {
+    res.json({ error: e.message, rows: [], totals: { impressions:0, interactions:0, website_clicks:0, calls:0, directions:0, desktop_search:0, mobile_search:0, desktop_maps:0, mobile_maps:0 } });
+  }
+});
+
+// ── Dashboard Auth (email/password) ───────────────────────────────────────
+app.post('/auth/dashboard/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
+    const { data: user, error } = await supabase
+      .from('dashboard_users').select('*').ilike('email', email.trim()).maybeSingle();
+    if (error || !user) return res.status(401).json({ error: 'Invalid email or password' });
+    const valid = await bcrypt.compare(password, user.password_hash);
+    if (!valid) return res.status(401).json({ error: 'Invalid email or password' });
+    const token = jwt.sign(
+      { email: user.email, name: user.name, role: user.role },
+      process.env.SESSION_SECRET || '%%SLUG%%-secret',
+      { expiresIn: '30d' }
+    );
+    res.cookie(DASH_COOKIE, token, {
+      httpOnly: true, secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax', maxAge: 30 * 24 * 60 * 60 * 1000
+    });
+    res.json({ ok: true, user: { email: user.email, name: user.name, role: user.role } });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/auth/dashboard/me', (req, res) => {
+  try {
+    const token = req.cookies?.[DASH_COOKIE];
+    if (!token) return res.json({ authenticated: false });
+    const user = jwt.verify(token, process.env.SESSION_SECRET || '%%SLUG%%-secret');
+    res.json({ authenticated: true, user });
+  } catch { res.json({ authenticated: false }); }
+});
+
+app.post('/auth/dashboard/logout', (req, res) => {
+  res.clearCookie(DASH_COOKIE);
+  res.json({ ok: true });
 });
 
 // ── Review Auth: start OAuth ───────────────────────────────────────────────
