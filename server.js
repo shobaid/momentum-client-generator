@@ -32,7 +32,7 @@ app.post('/api/generate', (req, res) => {
       qualifiedLabel,
       supabaseUrl, redirectUri,
       useGA4, useGSC, useWC, useSheets, useDocs, useQualified, useAdSpend,
-      useGMB, useDashboardLogin, ga4Events
+      useGMB, useDashboardLogin
     } = config;
 
     const slug     = toSlug(clientName);
@@ -184,18 +184,6 @@ app.post('/api/generate', (req, res) => {
     const colsJson = JSON.stringify(
       (sheetColumns || []).map(c => ({ key: c.key, label: c.label, color: c.color, type: c.type || 'number' }))
     );
-    // Inject GA4 event groups
-    const eventsJson = JSON.stringify(
-      (ga4Events || []).map(e => ({
-        key: toSlug(e.label),
-        label: e.label,
-        events: e.eventNames.split(',').map(s=>s.trim()).filter(Boolean),
-        color: e.color || '#3a8fd4'
-      }))
-    );
-    serverJs = serverJs.replace('%%GA4_EVENTS%%', eventsJson);
-    indexHtml = indexHtml.replace('%%GA4_EVENTS%%', eventsJson);
-
     serverJs = serverJs.replace('%%SHEET_COLUMNS%%', colsJson);
     serverJs = serverJs.replace('%%QUALIFIED_LABEL%%', qlabel);
 

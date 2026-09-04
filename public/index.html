@@ -223,16 +223,8 @@ textarea:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-lig
           </div>
           <div class="sub-fields open" id="sub-ga4">
             <div class="field"><label>GA4 Property ID *</label><input type="text" id="g-ga4Id" placeholder="e.g. 486245473" style="font-family:var(--mono)"><div class="hint">GA4 → Admin → Property Settings → Property ID</div></div>
-            <div style="margin-top:16px">
-              <div style="font-size:11px;font-weight:600;font-family:var(--mono);color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:10px">
-                Conversion Event Groups
-              </div>
-              <div id="eventsContainer"></div>
-              <button class="add-col-btn" onclick="addEventGroup()" style="margin-top:8px">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                Add Event Group
-              </button>
-              <div class="hint" style="margin-top:8px">Each group becomes a KPI card and chart. Add comma-separated GA4 event names per group (e.g. <code>phone_call_unique,phone_call_repeat</code>).</div>
+            <div class="hint" style="margin-top:8px;padding:8px 12px;background:#f0fdf4;border-radius:6px;border:1px solid #bbf7d0;color:#166534">
+              ✅ <strong>Auto-discovery:</strong> The dashboard automatically detects all GA4 key events and creates KPI cards for each one. No configuration needed.
             </div>
           </div>
 
@@ -630,8 +622,7 @@ async function generateDashboard() {
     redirectUri: document.getElementById('g-redirectUri').value.trim() || 'http://localhost:3000/auth/callback',
     useGA4: src.ga4, useGSC: src.gsc, useWC: src.wc, useSheets: src.sheets,
     useDocs: feat.docs, useQualified: feat.qualified, useAdSpend: feat.adspend,
-    useGMB: feat.gmb, useDashboardLogin: feat.dashLogin,
-    ga4Events: src.ga4 ? getEventGroups() : []
+    useGMB: feat.gmb, useDashboardLogin: feat.dashLogin
   };
 
   try {

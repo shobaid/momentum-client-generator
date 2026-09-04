@@ -761,7 +761,6 @@ let currentSection = 'overview';
 const fmt = n => { n=Math.round(n); if(n>=1e6) return (n/1e6).toFixed(1)+'M'; if(n>=1000) return (n/1000).toFixed(1)+'K'; return n.toLocaleString(); };
 const fmtSec = s => `${Math.floor(s/60)}m ${Math.round(s%60)}s`;
 const dateStr = d => d.toISOString().split('T')[0];
-const GA4_EVENTS = %%GA4_EVENTS%%;
 const COLORS = ['#3a8fd4','#4d9fff','#f59e0b','#a78bfa','#f87171','#06b6d4','#84cc16','#f472b6'];
 
 function getDates() {

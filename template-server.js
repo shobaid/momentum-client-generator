@@ -25,10 +25,6 @@ const DASH_COOKIE = '%%SLUG%%-dashboard';
 const REVIEW_COOKIE = 'pp_reviewer';
 const LAYOUT_FILE = path.join(__dirname, 'layout.json');
 
-// GA4 event groups — injected by generator
-// Format: [{key:'calls', label:'Phone Calls', events:['phone_call_unique','phone_call_repeat'], color:'#3a8fd4'}]
-const GA4_EVENTS = %%GA4_EVENTS%%;
-
 // Sheet columns — injected by generator
 const SHEET_COLUMNS = %%SHEET_COLUMNS%%;
 const QUALIFIED_LABEL = '%%QUALIFIED_LABEL%%';
@@ -116,45 +112,54 @@ app.post('/api/ga4', async (req, res) => {
   }
 });
 
-// ── GA4 events proxy — returns data for all configured event groups ─────────
+// ── GA4 events proxy — auto-discovers all key events ──────────────────────
 app.get('/api/ga4/events', async (req, res) => {
   try {
     const { start_date, end_date } = req.query;
     const token = await getGAToken();
 
-    // Collect all event names across all groups
-    const allEventNames = [...new Set(GA4_EVENTS.flatMap(g => g.events))];
-
-    // Fetch totals for all events
+    // Step 1: Fetch all events with counts for this period
     const totalsRes = await axios.post(
       `https://analyticsdata.googleapis.com/v1beta/${GA4_PROPERTY}:runReport`,
       {
         dateRanges: [{ startDate: start_date, endDate: end_date }],
         dimensions: [{ name: 'eventName' }],
         metrics: [{ name: 'eventCount' }],
-        dimensionFilter: { filter: { fieldName: 'eventName', inListFilter: { values: allEventNames } } }
+        orderBys: [{ metric: { metricName: 'eventCount' }, desc: true }],
+        limit: 50
       },
       { headers: { Authorization: `Bearer ${token}` } }
     );
 
-    // Fetch time series for all events
+    // Build event list — filter out GA4 system events
+    const systemEvents = new Set([
+      'session_start','first_visit','page_view','user_engagement',
+      'scroll','click','file_download','video_start','video_progress','video_complete',
+      'view_search_results','exception','purchase','add_to_cart','begin_checkout'
+    ]);
+
+    const allEvents = (totalsRes.data.rows || [])
+      .map(r => ({ name: r.dimensionValues[0].value, count: parseInt(r.metricValues[0].value) || 0 }))
+      .filter(e => e.count > 0 && !systemEvents.has(e.name));
+
+    if (allEvents.length === 0) {
+      return res.json({ groups: [], evMap: {} });
+    }
+
+    // Step 2: Fetch time series for all discovered events
+    const eventNames = allEvents.map(e => e.name);
     const tsRes = await axios.post(
       `https://analyticsdata.googleapis.com/v1beta/${GA4_PROPERTY}:runReport`,
       {
         dateRanges: [{ startDate: start_date, endDate: end_date }],
         dimensions: [{ name: 'date' }, { name: 'eventName' }],
         metrics: [{ name: 'eventCount' }],
-        dimensionFilter: { filter: { fieldName: 'eventName', inListFilter: { values: allEventNames } } },
-        orderBys: [{ dimension: { dimensionName: 'date' } }]
+        dimensionFilter: { filter: { fieldName: 'eventName', inListFilter: { values: eventNames } } },
+        orderBys: [{ dimension: { dimensionName: 'date' } }],
+        limit: 5000
       },
       { headers: { Authorization: `Bearer ${token}` } }
     );
-
-    // Build event map from totals
-    const evMap = {};
-    (totalsRes.data.rows || []).forEach(r => {
-      evMap[r.dimensionValues[0].value] = parseInt(r.metricValues[0].value) || 0;
-    });
 
     // Build time series map
     const tsMap = {};
@@ -165,22 +170,39 @@ app.get('/api/ga4/events', async (req, res) => {
       tsMap[date][event] = parseInt(r.metricValues[0].value) || 0;
     });
 
-    // Aggregate per group
-    const groups = GA4_EVENTS.map(group => {
-      const total = group.events.reduce((sum, ev) => sum + (evMap[ev] || 0), 0);
-      const dates = Object.keys(tsMap).sort();
-      const timeseries = dates.map(date => ({
-        date,
-        value: group.events.reduce((sum, ev) => sum + (tsMap[date]?.[ev] || 0), 0)
-      }));
-      return { key: group.key, label: group.label, color: group.color, total, timeseries };
-    });
+    const dates = Object.keys(tsMap).sort();
+
+    // Assign colors — cycle through palette
+    const palette = ['#3a8fd4','#a78bfa','#f59e0b','#34d399','#f87171','#60a5fa','#fb923c','#a3e635','#e879f9','#2dd4bf'];
+
+    // Build groups — each event is its own group
+    const evMap = {};
+    allEvents.forEach(e => { evMap[e.name] = e.count; });
+
+    const groups = allEvents.map((ev, i) => ({
+      key: ev.name.replace(/[^a-z0-9]/gi, '_'),
+      label: formatEventLabel(ev.name),
+      eventName: ev.name,
+      color: palette[i % palette.length],
+      total: ev.count,
+      timeseries: dates.map(date => ({ date, value: tsMap[date]?.[ev.name] || 0 }))
+    }));
 
     res.json({ groups, evMap });
   } catch (e) {
     res.status(e.response?.status || 500).json({ error: e.response?.data?.error?.message || e.message });
   }
 });
+
+function formatEventLabel(eventName) {
+  // Convert snake_case event names to readable labels
+  return eventName
+    .replace(/_/g, ' ')
+    .replace(/\w/g, l => l.toUpperCase())
+    .replace(/^Ads Conversion/, 'Ads')
+    .replace(/Unique$/, '(Unique)')
+    .replace(/Repeat$/, '(Repeat)');
+}
 
 // ── GSC proxy ──────────────────────────────────────────────────────────────
 app.post('/api/gsc', async (req, res) => {
