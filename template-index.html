@@ -293,10 +293,11 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
 .card-drag-handle:active { cursor: grabbing; }
 .card-hide-btn { display: none; position: absolute; top: 8px; right: 8px; cursor: pointer; color: var(--muted); z-index: 10; background: var(--bg2); border: 1px solid var(--border); border-radius: 4px; padding: 2px 6px; font-size: 11px; line-height: 1.4; transition: all 0.15s; }
 .card-hide-btn:hover { background: rgba(239,68,68,0.15); color: #f87171; border-color: rgba(239,68,68,0.3); }
-.layout-editing .layout-card { cursor: grab; }
-.layout-editing .card-drag-handle { display: flex; }
-.layout-editing .card-hide-btn { display: block; }
-.layout-editing .layout-card:hover { outline: 1px solid rgba(99,102,241,0.3); outline-offset: 2px; }
+.layout-editing .layout-card { cursor: default; }
+.layout-editing .card-drag-handle { display: flex !important; align-items: center; gap: 4px; }
+.layout-editing .card-hide-btn { display: block !important; }
+.layout-editing .layout-card:hover { box-shadow: 0 0 0 2px rgba(99,102,241,0.4); }
+.layout-editing .layout-card[draggable="true"] { cursor: grab; }
 </style>
 </head>
 <body>
@@ -1697,28 +1698,26 @@ function wrapCardsInSection(section) {
   const container = document.getElementById('sec-' + section);
   if (!container) return;
 
-  // Wrap direct children that are chart-cards and haven't been wrapped yet
-  const children = Array.from(container.children).filter(el =>
-    (el.classList.contains('chart-card') || el.classList.contains('stats-grid') ||
-     el.classList.contains('chart-row') || el.classList.contains('chart-row-2') ||
-     el.classList.contains('stat-grid') || el.classList.contains('section-label') ||
-     (el.tagName === 'DIV' && !el.classList.contains('layout-card') && !el.classList.contains('layout-edit-bar')))
-  );
+  // Target individual chart-cards within the section
+  const cards = Array.from(container.querySelectorAll('.chart-card, .stat-card-wrap'))
+    .filter(el => !el.closest('.layout-card')); // skip already-wrapped
 
-  children.forEach((child, i) => {
-    if (child.classList.contains('layout-card')) return;
+  cards.forEach((card, i) => {
     const wrapper = document.createElement('div');
     wrapper.className = 'layout-card';
-    const cardId = child.id || `layout-card-${section}-${i}`;
+    const cardId = card.id || `layout-card-${section}-${i}`;
     wrapper.setAttribute('data-card-id', cardId);
+    wrapper.style.position = 'relative';
+    wrapper.style.marginBottom = getComputedStyle(card).marginBottom;
+    card.style.marginBottom = '0';
 
-    // Add drag handle
+    // Drag handle
     const handle = document.createElement('div');
     handle.className = 'card-drag-handle';
-    handle.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="5" r="1.5" fill="currentColor"/><circle cx="15" cy="5" r="1.5" fill="currentColor"/><circle cx="9" cy="12" r="1.5" fill="currentColor"/><circle cx="15" cy="12" r="1.5" fill="currentColor"/><circle cx="9" cy="19" r="1.5" fill="currentColor"/><circle cx="15" cy="19" r="1.5" fill="currentColor"/></svg>`;
+    handle.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="5" r="1.5" fill="currentColor"/><circle cx="15" cy="5" r="1.5" fill="currentColor"/><circle cx="9" cy="12" r="1.5" fill="currentColor"/><circle cx="15" cy="12" r="1.5" fill="currentColor"/><circle cx="9" cy="19" r="1.5" fill="currentColor"/><circle cx="15" cy="19" r="1.5" fill="currentColor"/></svg> Drag`;
     handle.title = 'Drag to reorder';
 
-    // Add hide button
+    // Hide button
     const hideBtn = document.createElement('button');
     hideBtn.className = 'card-hide-btn';
     hideBtn.textContent = '✕ Hide';
@@ -1726,11 +1725,11 @@ function wrapCardsInSection(section) {
 
     wrapper.appendChild(handle);
     wrapper.appendChild(hideBtn);
-    child.parentNode.insertBefore(wrapper, child);
-    wrapper.appendChild(child);
+    card.parentNode.insertBefore(wrapper, card);
+    wrapper.appendChild(card);
 
     // Drag events
-    wrapper.draggable = false; // only enabled in edit mode
+    wrapper.draggable = false;
     wrapper.addEventListener('dragstart', onDragStart);
     wrapper.addEventListener('dragover', onDragOver);
     wrapper.addEventListener('dragleave', onDragLeave);
