@@ -39,7 +39,12 @@ const supabase = createClient(
 const gauth = new GoogleAuth({
   credentials: {
     client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
-    private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n')
+    private_key: (() => {
+      const envKey = process.env.GOOGLE_PRIVATE_KEY;
+      if (envKey) return envKey.replace(/\\n/g, '\n');
+      try { return require('fs').readFileSync(require('path').join(__dirname, 'private-key.pem'), 'utf8'); } catch(e) {}
+      return '';
+    })()
   },
   scopes: [
     'https://www.googleapis.com/auth/analytics.readonly',

@@ -203,6 +203,10 @@ textarea:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-lig
                 <div id="logoPlaceholder"><div style="font-size:18px;margin-bottom:3px">🖼️</div><div style="font-size:12px;color:var(--muted)">Click to upload (PNG, SVG, WebP)</div></div>
               </div>
               <input type="file" id="logoFile" accept="image/*" style="display:none" onchange="handleLogo(this)">
+              <div style="margin-top:8px;display:flex;align-items:center;gap:8px">
+                <input type="checkbox" id="g-logoInvert" checked style="width:14px;height:14px;cursor:pointer">
+                <label for="g-logoInvert" style="font-size:12px;color:var(--muted);cursor:pointer;font-weight:400">Invert logo to white (for dark sidebars)</label>
+              </div>
             </div>
           </div>
           <div class="field-row">
