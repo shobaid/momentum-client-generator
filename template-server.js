@@ -9,6 +9,7 @@ const { google } = require('googleapis');
 const { createClient } = require('@supabase/supabase-js');
 const bcrypt = require('bcryptjs');
 const path = require('path');
+const fs = require('fs');
 
 const app = express();
 app.use(express.json());
@@ -20,8 +21,17 @@ const GSC_SITE = 'sc-domain:pennpain.com';
 const WC_PROFILE = '148479';
 const SHEET_ID = '1cXnqHBu9OJXA-TIemxTAm8tkKNDOMbY8hWgWlpbi3P4';
 const SHEET_TAB = 'dashboard_data';
-const REVIEW_COOKIE = 'pp_reviewer';
 const DASH_COOKIE = '%%SLUG%%-dashboard';
+const REVIEW_COOKIE = 'pp_reviewer';
+const LAYOUT_FILE = path.join(__dirname, 'layout.json');
+
+// GA4 event groups — injected by generator
+// Format: [{key:'calls', label:'Phone Calls', events:['phone_call_unique','phone_call_repeat'], color:'#3a8fd4'}]
+const GA4_EVENTS = %%GA4_EVENTS%%;
+
+// Sheet columns — injected by generator
+const SHEET_COLUMNS = %%SHEET_COLUMNS%%;
+const QUALIFIED_LABEL = '%%QUALIFIED_LABEL%%';
 
 // ── Supabase ───────────────────────────────────────────────────────────────
 const supabase = createClient(
@@ -30,13 +40,11 @@ const supabase = createClient(
 );
 
 // ── Google auth (service account) ─────────────────────────────────────────
-const serviceAccountCreds = {
-  client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
-  private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n')
-};
-
 const gauth = new GoogleAuth({
-  credentials: serviceAccountCreds,
+  credentials: {
+    client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
+    private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n')
+  },
   scopes: [
     'https://www.googleapis.com/auth/analytics.readonly',
     'https://www.googleapis.com/auth/webmasters.readonly',
@@ -50,7 +58,7 @@ async function getGAToken() {
   return token.token;
 }
 
-// ── Reviewer session helpers ───────────────────────────────────────────────
+// ── Session helpers ────────────────────────────────────────────────────────
 const COOKIE_OPTS = {
   httpOnly: true,
   secure: process.env.NODE_ENV === 'production',
@@ -59,16 +67,40 @@ const COOKIE_OPTS = {
 };
 
 function signSession(data) {
-  return jwt.sign(data, process.env.SESSION_SECRET || 'pennpain-secret', { expiresIn: '7d' });
+  return jwt.sign(data, process.env.SESSION_SECRET || '%%SLUG%%-secret', { expiresIn: '7d' });
 }
 
 function readSession(req) {
   try {
     const token = req.cookies?.[REVIEW_COOKIE];
     if (!token) return null;
-    return jwt.verify(token, process.env.SESSION_SECRET || 'pennpain-secret');
+    return jwt.verify(token, process.env.SESSION_SECRET || '%%SLUG%%-secret');
   } catch { return null; }
 }
+
+// ── Layout API ─────────────────────────────────────────────────────────────
+app.get('/api/layout', (req, res) => {
+  try {
+    if (fs.existsSync(LAYOUT_FILE)) {
+      const layout = JSON.parse(fs.readFileSync(LAYOUT_FILE, 'utf8'));
+      res.json({ ok: true, layout });
+    } else {
+      res.json({ ok: true, layout: null });
+    }
+  } catch (e) {
+    res.json({ ok: true, layout: null });
+  }
+});
+
+app.post('/api/layout', (req, res) => {
+  try {
+    const { layout } = req.body;
+    fs.writeFileSync(LAYOUT_FILE, JSON.stringify(layout, null, 2));
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
 
 // ── GA4 proxy ──────────────────────────────────────────────────────────────
 app.post('/api/ga4', async (req, res) => {
@@ -79,6 +111,72 @@ app.post('/api/ga4', async (req, res) => {
       req.body, { headers: { Authorization: `Bearer ${token}` } }
     );
     res.json(response.data);
+  } catch (e) {
+    res.status(e.response?.status || 500).json({ error: e.response?.data?.error?.message || e.message });
+  }
+});
+
+// ── GA4 events proxy — returns data for all configured event groups ─────────
+app.get('/api/ga4/events', async (req, res) => {
+  try {
+    const { start_date, end_date } = req.query;
+    const token = await getGAToken();
+
+    // Collect all event names across all groups
+    const allEventNames = [...new Set(GA4_EVENTS.flatMap(g => g.events))];
+
+    // Fetch totals for all events
+    const totalsRes = await axios.post(
+      `https://analyticsdata.googleapis.com/v1beta/${GA4_PROPERTY}:runReport`,
+      {
+        dateRanges: [{ startDate: start_date, endDate: end_date }],
+        dimensions: [{ name: 'eventName' }],
+        metrics: [{ name: 'eventCount' }],
+        dimensionFilter: { filter: { fieldName: 'eventName', inListFilter: { values: allEventNames } } }
+      },
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+
+    // Fetch time series for all events
+    const tsRes = await axios.post(
+      `https://analyticsdata.googleapis.com/v1beta/${GA4_PROPERTY}:runReport`,
+      {
+        dateRanges: [{ startDate: start_date, endDate: end_date }],
+        dimensions: [{ name: 'date' }, { name: 'eventName' }],
+        metrics: [{ name: 'eventCount' }],
+        dimensionFilter: { filter: { fieldName: 'eventName', inListFilter: { values: allEventNames } } },
+        orderBys: [{ dimension: { dimensionName: 'date' } }]
+      },
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+
+    // Build event map from totals
+    const evMap = {};
+    (totalsRes.data.rows || []).forEach(r => {
+      evMap[r.dimensionValues[0].value] = parseInt(r.metricValues[0].value) || 0;
+    });
+
+    // Build time series map
+    const tsMap = {};
+    (tsRes.data.rows || []).forEach(r => {
+      const date = r.dimensionValues[0].value;
+      const event = r.dimensionValues[1].value;
+      if (!tsMap[date]) tsMap[date] = {};
+      tsMap[date][event] = parseInt(r.metricValues[0].value) || 0;
+    });
+
+    // Aggregate per group
+    const groups = GA4_EVENTS.map(group => {
+      const total = group.events.reduce((sum, ev) => sum + (evMap[ev] || 0), 0);
+      const dates = Object.keys(tsMap).sort();
+      const timeseries = dates.map(date => ({
+        date,
+        value: group.events.reduce((sum, ev) => sum + (tsMap[date]?.[ev] || 0), 0)
+      }));
+      return { key: group.key, label: group.label, color: group.color, total, timeseries };
+    });
+
+    res.json({ groups, evMap });
   } catch (e) {
     res.status(e.response?.status || 500).json({ error: e.response?.data?.error?.message || e.message });
   }
@@ -101,9 +199,9 @@ app.post('/api/gsc', async (req, res) => {
 // ── WhatConverts proxy ─────────────────────────────────────────────────────
 app.get('/api/whatconverts', async (req, res) => {
   try {
-    const { start_date, end_date, per_page = 25, page = 1, quotable } = req.query;
+    const { start_date, end_date, leads_per_page = 25, page_number = 1, quotable } = req.query;
     const token = Buffer.from(`${process.env.WHATCONVERTS_TOKEN}:${process.env.WHATCONVERTS_SECRET}`).toString('base64');
-    const params = { profile_id: WC_PROFILE, start_date, end_date, per_page, page };
+    const params = { profile_id: WC_PROFILE, start_date, end_date, leads_per_page, page_number };
     if (quotable) params.quotable = quotable;
     const response = await axios.get('https://app.whatconverts.com/api/v1/leads', {
       headers: { Authorization: `Basic ${token}` },
@@ -131,19 +229,36 @@ app.get('/api/whatconverts/np-appointments', async (req, res) => {
     const { start_date, end_date } = req.query;
     const token = Buffer.from(`${process.env.WHATCONVERTS_TOKEN}:${process.env.WHATCONVERTS_SECRET}`).toString('base64');
 
-    const reqParams = { profile_id: WC_PROFILE, start_date, end_date, quotable: 'yes', per_page: 100 }; // QUALIFIED_LABEL used in frontend
-    console.log('NP appts request params:', JSON.stringify(reqParams));
-    const response = await axios.get('https://app.whatconverts.com/api/v1/leads', {
+    const firstRes = await axios.get('https://app.whatconverts.com/api/v1/leads', {
       headers: { Authorization: `Basic ${token}` },
-      params: reqParams
+      params: { profile_id: WC_PROFILE, start_date, end_date, quotable: 'yes', leads_per_page: 100, page_number: 1 }
+    });
+    const total = firstRes.data.total_leads || 0;
+    const totalPages = firstRes.data.total_pages || Math.ceil(total / 20);
+    let leads = firstRes.data.leads || [];
+
+    if (totalPages > 1) {
+      const pageRequests = [];
+      for (let p = 2; p <= totalPages; p++) {
+        pageRequests.push(axios.get('https://app.whatconverts.com/api/v1/leads', {
+          headers: { Authorization: `Basic ${token}` },
+          params: { profile_id: WC_PROFILE, start_date, end_date, quotable: 'yes', leads_per_page: 100, page_number: p }
+        }));
+      }
+      const pageResults = await Promise.all(pageRequests);
+      pageResults.forEach(r => { leads = leads.concat(r.data.leads || []); });
+    }
+
+    const seen = new Set();
+    const uniqueLeads = leads.filter(lead => {
+      const id = lead.lead_id || lead.id;
+      if (!id || seen.has(id)) return false;
+      seen.add(id);
+      return true;
     });
 
-    const leads = response.data.leads || [];
-    const total = response.data.total_leads || 0;
-    console.log('NP appts response: total=', total, 'leads count=', leads.length, 'first lead quotable=', leads[0]?.quotable);
-
     const sourceMap = {};
-    leads.forEach(lead => {
+    uniqueLeads.forEach(lead => {
       const source = lead.lead_source || lead.traffic_source || 'direct';
       const medium = lead.lead_medium || lead.traffic_medium || 'none';
       const key = medium === 'cpc' ? 'Google Ads' :
@@ -155,47 +270,27 @@ app.get('/api/whatconverts/np-appointments', async (req, res) => {
       sourceMap[key] = (sourceMap[key] || 0) + 1;
     });
 
-    const typeMap = {};
-    leads.forEach(lead => {
-      const type = lead.lead_type || 'Other';
-      typeMap[type] = (typeMap[type] || 0) + 1;
-    });
-
     const dateMap = {};
-    leads.forEach(lead => {
+    uniqueLeads.forEach(lead => {
       if (lead.date_created) {
         const date = lead.date_created.split('T')[0];
         dateMap[date] = (dateMap[date] || 0) + 1;
       }
     });
 
-    res.json({
-      total,
-      leads: leads.slice(0, 20),
-      by_source: sourceMap,
-      by_type: typeMap,
-      by_date: dateMap
-    });
+    res.json({ total, leads: uniqueLeads.slice(0, 20), by_source: sourceMap, by_date: dateMap });
   } catch (e) {
-    const errDetail = e.response?.data || e.message;
-    console.error('NP appointments error:', e.response?.status, JSON.stringify(errDetail));
-    res.json({ error: e.message, total: 0, leads: [], by_source: {}, by_type: {}, by_date: {} });
+    res.json({ error: e.message, total: 0, leads: [], by_source: {}, by_date: {} });
   }
 });
 
-// ── Google Sheets proxy ───────────────────────────────────────────────────
-// SHEET_COLUMNS is injected by the generator — do not edit manually
-const SHEET_COLUMNS = %%SHEET_COLUMNS%%;
-// QUALIFIED_LABEL is injected by the generator
-const QUALIFIED_LABEL = '%%QUALIFIED_LABEL%%';
-
+// ── Google Sheets (Ad Spend + NP Appointments) ────────────────────────────
 app.get('/api/adspend', async (req, res) => {
   try {
     const { start_date, end_date } = req.query;
     const authClient = await gauth.getClient();
     const sheets = google.sheets({ version: 'v4', auth: authClient });
-    // Columns: A=Date label, B=Week Start, C=Week End, then data columns
-    const colCount = SHEET_COLUMNS.length + 3; // +3 for Date, Week Start, Week End
+    const colCount = SHEET_COLUMNS.length + 3;
     const lastCol = String.fromCharCode(64 + colCount);
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SHEET_ID,
@@ -205,7 +300,6 @@ app.get('/api/adspend', async (req, res) => {
     const rows = response.data.values || [];
     if (rows.length < 2) return res.json({ rows: [], columns: SHEET_COLUMNS, latest: null, totals: {} });
 
-    // Skip header — A=date label, B=week_start, C=week_end, D+=data cols
     const data = rows.slice(1).map(row => {
       const entry = { date: row[0] || '', week_start: row[1] || '', week_end: row[2] || '' };
       SHEET_COLUMNS.forEach((col, i) => {
@@ -217,14 +311,11 @@ app.get('/api/adspend', async (req, res) => {
       return entry;
     }).filter(r => r.date && r.week_end);
 
-    // Filter by week_end falling within the selected date range
     const filtered = (start_date && end_date)
       ? data.filter(r => r.week_end >= start_date && r.week_end <= end_date)
       : data;
 
-    const latest = data[0] || null; // newest row at top
-
-    // Build totals for filtered rows only
+    const latest = data[0] || null;
     const totals = {};
     SHEET_COLUMNS.forEach(col => {
       totals[col.key] = Math.round(filtered.reduce((s, r) => s + (r[col.key] || 0), 0) * 100) / 100;
@@ -232,11 +323,11 @@ app.get('/api/adspend', async (req, res) => {
 
     res.json({ rows: filtered, all_rows: data, columns: SHEET_COLUMNS, latest, totals });
   } catch (e) {
-    console.error('Sheets error:', e.message, e.response?.data || '');
     res.json({ error: e.message, rows: [], columns: SHEET_COLUMNS, latest: null, totals: {} });
   }
 });
-// ── Google Business Profile (via Google Sheets — exported from Agency Analytics) ──
+
+// ── Google Business Profile (via Google Sheets) ────────────────────────────
 app.get('/api/gmb', async (req, res) => {
   try {
     const { start_date, end_date } = req.query;
@@ -248,6 +339,7 @@ app.get('/api/gmb', async (req, res) => {
     });
     const rows = response.data.values || [];
     if (rows.length < 2) return res.json({ rows: [], totals: {} });
+
     const data = rows.slice(1).map(row => ({
       date: row[0] || '',
       impressions: parseInt((row[1] || '0').replace(/[^0-9]/g, '')) || 0,
@@ -259,10 +351,17 @@ app.get('/api/gmb', async (req, res) => {
       impressions_desktop_search: parseInt((row[7] || '0').replace(/[^0-9]/g, '')) || 0,
       impressions_mobile_maps: parseInt((row[8] || '0').replace(/[^0-9]/g, '')) || 0,
       impressions_mobile_search: parseInt((row[9] || '0').replace(/[^0-9]/g, '')) || 0
-    })).filter(r => r.date && r.date !== 'Date' && !(r.impressions === 0 && r.interactions === 0 && r.calls === 0));
+    })).filter(r => {
+      if (!r.date || r.date === 'Date') return false;
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(r.date)) return false;
+      if (r.impressions === 0 && r.interactions === 0 && r.calls === 0) return false;
+      return true;
+    });
+
     const filtered = (start_date && end_date)
       ? data.filter(r => r.date >= start_date && r.date <= end_date)
       : data;
+
     const totals = filtered.reduce((acc, row) => {
       acc.impressions += row.impressions; acc.interactions += row.interactions;
       acc.website_clicks += row.website_clicks; acc.calls += row.calls;
@@ -272,6 +371,7 @@ app.get('/api/gmb', async (req, res) => {
       acc.mobile_maps += row.impressions_mobile_maps;
       return acc;
     }, { impressions:0, interactions:0, website_clicks:0, calls:0, directions:0, desktop_search:0, mobile_search:0, desktop_maps:0, mobile_maps:0 });
+
     res.json({ rows: filtered, totals });
   } catch (e) {
     res.json({ error: e.message, rows: [], totals: { impressions:0, interactions:0, website_clicks:0, calls:0, directions:0, desktop_search:0, mobile_search:0, desktop_maps:0, mobile_maps:0 } });
@@ -331,7 +431,6 @@ app.get('/auth/review/login', (req, res) => {
   res.json({ url: `https://accounts.google.com/o/oauth2/v2/auth?${params}` });
 });
 
-// ── Review Auth: OAuth callback ────────────────────────────────────────────
 app.get('/auth/callback', async (req, res) => {
   const { code, state, error } = req.query;
   if (error) return res.redirect(`/?review_error=${encodeURIComponent(error)}`);
@@ -355,7 +454,6 @@ app.get('/auth/callback', async (req, res) => {
     res.cookie(REVIEW_COOKIE, signSession({ email, name: userRes.data.name, picture: userRes.data.picture, role: reviewer.role }), COOKIE_OPTS);
     res.redirect('/?section=documents');
   } catch (e) {
-    console.error('Review auth error:', e.message);
     res.redirect(`/?review_error=${encodeURIComponent('Authentication failed')}`);
   }
 });
