@@ -5,8 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Penn Pain· Analytics by Momentum Digital</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gridstack@10.3.1/dist/gridstack.min.css">
-<script src="https://cdn.jsdelivr.net/npm/gridstack@10.3.1/dist/gridstack-all.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=Roboto+Mono:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
@@ -279,16 +277,26 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
 .grid-stack-item-content { background: transparent; overflow: visible; }
 .grid-stack-item { cursor: grab; }
 .grid-stack-item:active { cursor: grabbing; }
-.layout-edit-bar { display: none; align-items: center; gap: 10px; padding: 8px 14px; background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.3); border-radius: var(--radius-sm); margin-bottom: 1rem; font-size: 12px; color: #818cf8; font-family: var(--font-mono); }
+/* ── Layout editing ── */
+.layout-edit-bar { display: none; align-items: center; gap: 10px; padding: 8px 14px; background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.3); border-radius: var(--radius-sm); margin-bottom: 1rem; font-size: 12px; color: #818cf8; font-family: var(--font-mono); flex-wrap: wrap; }
 .layout-edit-bar.show { display: flex; }
 .layout-edit-bar button { background: #6366f1; color: #fff; border: none; border-radius: 6px; padding: 5px 12px; font-size: 11px; font-weight: 600; cursor: pointer; font-family: var(--font-body); }
 .layout-edit-bar button.cancel-btn { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+.layout-edit-bar button.reset-btn { background: rgba(239,68,68,0.15); color: #f87171; border: 1px solid rgba(239,68,68,0.3); }
 .edit-layout-btn { display: flex; align-items: center; gap: 6px; background: none; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 5px 10px; font-size: 11px; color: var(--muted); cursor: pointer; font-family: var(--font-body); transition: all 0.15s; }
 .edit-layout-btn:hover { border-color: #6366f1; color: #818cf8; }
-.grid-stack-item .ui-resizable-se { bottom: 4px; right: 4px; background: rgba(255,255,255,0.1); border-radius: 3px; }
-.gs-item-wrapper { cursor: grab; border-radius: var(--radius); transition: box-shadow 0.15s; }
-.gs-item-wrapper:hover { box-shadow: 0 0 0 2px rgba(99,102,241,0.4); }
-.gs-item-wrapper:active { cursor: grabbing; }
+/* Draggable cards */
+.layout-card { position: relative; }
+.layout-card.dragging { opacity: 0.4; }
+.layout-card.drag-over { outline: 2px dashed #6366f1; outline-offset: 2px; }
+.card-drag-handle { display: none; position: absolute; top: 8px; left: 8px; cursor: grab; color: var(--muted); z-index: 10; background: var(--bg2); border-radius: 4px; padding: 3px 4px; }
+.card-drag-handle:active { cursor: grabbing; }
+.card-hide-btn { display: none; position: absolute; top: 8px; right: 8px; cursor: pointer; color: var(--muted); z-index: 10; background: var(--bg2); border: 1px solid var(--border); border-radius: 4px; padding: 2px 6px; font-size: 11px; line-height: 1.4; transition: all 0.15s; }
+.card-hide-btn:hover { background: rgba(239,68,68,0.15); color: #f87171; border-color: rgba(239,68,68,0.3); }
+.layout-editing .layout-card { cursor: grab; }
+.layout-editing .card-drag-handle { display: flex; }
+.layout-editing .card-hide-btn { display: block; }
+.layout-editing .layout-card:hover { outline: 1px solid rgba(99,102,241,0.3); outline-offset: 2px; }
 </style>
 </head>
 <body>
@@ -375,8 +383,9 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
     </div>
     <div class="topbar-right">
       <div class="layout-edit-bar" id="layoutEditBar">
-        <span>✏️ Drag cards to reorder — changes affect all users</span>
+        <span>✏️ Drag to reorder · ✕ to hide cards</span>
         <button onclick="saveLayout()">Save Layout</button>
+        <button class="reset-btn" onclick="resetLayout()">Reset Section</button>
         <button class="cancel-btn" onclick="cancelLayout()">Cancel</button>
       </div>
       <button class="edit-layout-btn" id="editLayoutBtn" onclick="toggleLayoutEdit()" title="Customize dashboard layout">
@@ -1009,6 +1018,7 @@ async function loadData() {
     document.getElementById('loadingText').textContent='Rendering…';
     cachedData={cur,prev,ts,srcs,pages,devices,newUsers,bounceTs,gscSum,gscTs,gscQ,convEvents,wcData,npData,adSpendData,gmbData,start,end};
     renderKPIs(); renderSection(currentSection);
+    setTimeout(()=>applyLayoutToSection(currentSection), 300);
     document.getElementById('loadingState').style.display='none';
     document.getElementById('dashboardWrap').style.display='block';
     document.getElementById('updatedLine').textContent=`Updated ${new Date().toLocaleTimeString()} · ${start} → ${end}`;
@@ -1089,7 +1099,7 @@ function renderKPIs() {
 }
 
 function renderSection(name) {
-  if(name==='gmb'){ renderGMB(); setTimeout(()=>applySavedLayout(name),200); return; }
+  if(name==='gmb'){ renderGMB(); setTimeout(()=>applyLayoutToSection(name),300); return; }
   const {ts,srcs,gscTs,bounceTs,devices,pages,gscQ,newUsers,gscSum}=cachedData;
 
   if(name==='overview') {
@@ -1647,132 +1657,220 @@ async function submitNewDoc() {
   }
 }
 
-// ── Gridstack Layout ─────────────────────────────────────────────────────
+// ── Layout System (drag-to-reorder + hide/show cards) ────────────────────
 let layoutEditing = false;
-let activeGrid = null;
-let savedLayout = null;
+let layoutData = {}; // { sectionName: { order: [ids], hidden: [ids] } }
+let layoutSnapshot = {}; // for cancel
 
-async function loadSavedLayout() {
+async function loadLayout() {
   try {
     const res = await fetch('/api/layout');
     const data = await res.json();
-    return data.layout || null;
-  } catch(e) { return null; }
+    layoutData = data.layout || {};
+  } catch(e) { layoutData = {}; }
+}
+
+function applyLayoutToSection(section) {
+  const container = document.getElementById('sec-' + section);
+  if (!container) return;
+  const sectionLayout = layoutData[section];
+  if (!sectionLayout) return;
+
+  // Apply hidden cards
+  if (sectionLayout.hidden?.length) {
+    sectionLayout.hidden.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.closest('.layout-card')?.style.setProperty('display','none','important');
+    });
+  }
+
+  // Apply order
+  if (sectionLayout.order?.length) {
+    sectionLayout.order.forEach(id => {
+      const card = document.getElementById(id)?.closest('.layout-card');
+      if (card) container.appendChild(card);
+    });
+  }
+}
+
+function wrapCardsInSection(section) {
+  const container = document.getElementById('sec-' + section);
+  if (!container) return;
+
+  // Wrap direct children that are chart-cards and haven't been wrapped yet
+  const children = Array.from(container.children).filter(el =>
+    (el.classList.contains('chart-card') || el.classList.contains('stats-grid') ||
+     el.classList.contains('chart-row') || el.classList.contains('chart-row-2') ||
+     el.classList.contains('stat-grid') || el.classList.contains('section-label') ||
+     (el.tagName === 'DIV' && !el.classList.contains('layout-card') && !el.classList.contains('layout-edit-bar')))
+  );
+
+  children.forEach((child, i) => {
+    if (child.classList.contains('layout-card')) return;
+    const wrapper = document.createElement('div');
+    wrapper.className = 'layout-card';
+    const cardId = child.id || `layout-card-${section}-${i}`;
+    wrapper.setAttribute('data-card-id', cardId);
+
+    // Add drag handle
+    const handle = document.createElement('div');
+    handle.className = 'card-drag-handle';
+    handle.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="5" r="1.5" fill="currentColor"/><circle cx="15" cy="5" r="1.5" fill="currentColor"/><circle cx="9" cy="12" r="1.5" fill="currentColor"/><circle cx="15" cy="12" r="1.5" fill="currentColor"/><circle cx="9" cy="19" r="1.5" fill="currentColor"/><circle cx="15" cy="19" r="1.5" fill="currentColor"/></svg>`;
+    handle.title = 'Drag to reorder';
+
+    // Add hide button
+    const hideBtn = document.createElement('button');
+    hideBtn.className = 'card-hide-btn';
+    hideBtn.textContent = '✕ Hide';
+    hideBtn.onclick = (e) => { e.stopPropagation(); hideCard(wrapper, section); };
+
+    wrapper.appendChild(handle);
+    wrapper.appendChild(hideBtn);
+    child.parentNode.insertBefore(wrapper, child);
+    wrapper.appendChild(child);
+
+    // Drag events
+    wrapper.draggable = false; // only enabled in edit mode
+    wrapper.addEventListener('dragstart', onDragStart);
+    wrapper.addEventListener('dragover', onDragOver);
+    wrapper.addEventListener('dragleave', onDragLeave);
+    wrapper.addEventListener('drop', onDrop);
+    wrapper.addEventListener('dragend', onDragEnd);
+  });
+}
+
+let dragSrc = null;
+function onDragStart(e) {
+  dragSrc = this;
+  this.classList.add('dragging');
+  e.dataTransfer.effectAllowed = 'move';
+}
+function onDragOver(e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  if (this !== dragSrc) this.classList.add('drag-over');
+}
+function onDragLeave() { this.classList.remove('drag-over'); }
+function onDrop(e) {
+  e.preventDefault();
+  this.classList.remove('drag-over');
+  if (dragSrc && this !== dragSrc) {
+    const container = this.parentNode;
+    const cards = Array.from(container.querySelectorAll('.layout-card'));
+    const srcIdx = cards.indexOf(dragSrc);
+    const tgtIdx = cards.indexOf(this);
+    if (srcIdx < tgtIdx) container.insertBefore(dragSrc, this.nextSibling);
+    else container.insertBefore(dragSrc, this);
+  }
+}
+function onDragEnd() {
+  this.classList.remove('dragging');
+  document.querySelectorAll('.layout-card').forEach(c => c.classList.remove('drag-over'));
+}
+
+function hideCard(wrapper, section) {
+  wrapper.style.setProperty('display','none','important');
 }
 
 function toggleLayoutEdit() {
   layoutEditing = !layoutEditing;
+  const section = currentSection;
   document.getElementById('layoutEditBar').classList.toggle('show', layoutEditing);
   document.getElementById('editLayoutBtn').style.display = layoutEditing ? 'none' : 'flex';
 
   if (layoutEditing) {
-    enableGridstack();
+    // Snapshot current state for cancel
+    layoutSnapshot = JSON.parse(JSON.stringify(layoutData));
+
+    // Wrap cards if not already wrapped
+    wrapCardsInSection(section);
+
+    // Enable dragging
+    document.getElementById('sec-' + section).classList.add('layout-editing');
+    document.getElementById('sec-' + section).querySelectorAll('.layout-card').forEach(c => {
+      c.draggable = true;
+      c.style.removeProperty('display'); // show all hidden cards temporarily
+    });
   } else {
-    if (activeGrid) { activeGrid.destroy(false); activeGrid = null; }
+    // Re-apply hidden state
+    document.getElementById('sec-' + section).classList.remove('layout-editing');
+    document.getElementById('sec-' + section).querySelectorAll('.layout-card').forEach(c => {
+      c.draggable = false;
+    });
+    applyLayoutToSection(section);
   }
 }
 
-function enableGridstack() {
+async function saveLayout() {
   const section = currentSection;
   const container = document.getElementById('sec-' + section);
-  if (!container) return;
+  container.classList.remove('layout-editing');
 
-  // Wrap each top-level direct child div in a grid-stack-item
-  const children = Array.from(container.children).filter(el =>
-    el.tagName === 'DIV' && !el.classList.contains('layout-edit-bar')
-  );
+  // Collect order and hidden cards
+  const cards = Array.from(container.querySelectorAll('.layout-card'));
+  const order = cards.map(c => c.getAttribute('data-card-id'));
+  const hidden = cards.filter(c => c.style.display === 'none' ||
+    getComputedStyle(c).display === 'none').map(c => c.getAttribute('data-card-id'));
 
-  // Remove old wrappers if any
-  container.querySelectorAll('.gs-item-wrapper').forEach(w => {
-    w.replaceWith(...w.children);
-  });
-
-  // Wrap each card
-  children.forEach((child, i) => {
-    const wrapper = document.createElement('div');
-    wrapper.className = 'gs-item-wrapper';
-    wrapper.setAttribute('gs-w', '12');
-    wrapper.setAttribute('gs-h', '1');
-    wrapper.setAttribute('gs-y', i);
-    wrapper.setAttribute('gs-x', '0');
-    child.parentNode.insertBefore(wrapper, child);
-    wrapper.appendChild(child);
-  });
-
-  if (activeGrid) { activeGrid.destroy(false); activeGrid = null; }
-
-  activeGrid = GridStack.init({
-    column: 12,
-    cellHeight: 80,
-    margin: 6,
-    float: false,
-    animate: true,
-    draggable: { handle: '.gs-item-wrapper' },
-    resizable: { handles: 'se,sw' }
-  }, '#sec-' + section);
-
-  // Highlight edit mode
-  container.style.outline = '2px dashed rgba(99,102,241,0.4)';
-  container.style.borderRadius = '8px';
-}
-
-async function saveLayout() {
-  if (!activeGrid) return;
-
-  // Save positions as ordered list of child IDs
-  const section = currentSection;
-  const items = activeGrid.engine.nodes.sort((a,b)=>a.y-b.y);
-  const order = items.map(n => {
-    const el = n.el?.querySelector('[id]');
-    return el?.id || '';
-  }).filter(Boolean);
+  layoutData[section] = { order, hidden };
 
   try {
-    const existing = await loadSavedLayout() || {};
-    existing[section] = order;
     await fetch('/api/layout', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ layout: existing })
+      body: JSON.stringify({ layout: layoutData })
+    });
+  } catch(e) { console.error('Layout save failed:', e); }
+
+  cards.forEach(c => { c.draggable = false; });
+  applyLayoutToSection(section);
+  layoutEditing = false;
+  document.getElementById('layoutEditBar').classList.remove('show');
+  document.getElementById('editLayoutBtn').style.display = 'flex';
+}
+
+async function resetLayout() {
+  const section = currentSection;
+  delete layoutData[section];
+  try {
+    await fetch('/api/layout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ layout: layoutData })
     });
   } catch(e) {}
 
-  // Unwrap
-  if (activeGrid) { activeGrid.destroy(false); activeGrid = null; }
-  document.getElementById('sec-' + section).querySelectorAll('.gs-item-wrapper').forEach(w => {
-    w.replaceWith(...w.children);
+  // Unwrap all layout-cards and re-render section
+  const container = document.getElementById('sec-' + section);
+  container.classList.remove('layout-editing');
+  container.querySelectorAll('.layout-card').forEach(w => {
+    const child = w.querySelector(':not(.card-drag-handle):not(.card-hide-btn)');
+    if (child) w.replaceWith(child);
   });
-  document.getElementById('sec-' + section).style.outline = '';
   layoutEditing = false;
   document.getElementById('layoutEditBar').classList.remove('show');
   document.getElementById('editLayoutBtn').style.display = 'flex';
+
+  // Re-render the section
+  renderSection(currentSection);
 }
 
 function cancelLayout() {
-  if (activeGrid) { activeGrid.destroy(false); activeGrid = null; }
   const section = currentSection;
-  document.getElementById('sec-' + section).querySelectorAll('.gs-item-wrapper').forEach(w => {
-    w.replaceWith(...w.children);
-  });
-  document.getElementById('sec-' + section).style.outline = '';
+  layoutData = JSON.parse(JSON.stringify(layoutSnapshot));
+  const container = document.getElementById('sec-' + section);
+  container.classList.remove('layout-editing');
+  container.querySelectorAll('.layout-card').forEach(c => { c.draggable = false; });
+  applyLayoutToSection(section);
   layoutEditing = false;
   document.getElementById('layoutEditBar').classList.remove('show');
   document.getElementById('editLayoutBtn').style.display = 'flex';
 }
 
-// Apply saved layout order after render
-async function applySavedLayout(section) {
-  const layout = await loadSavedLayout();
-  if (!layout || !layout[section]) return;
-  const order = layout[section];
-  const container = document.getElementById('sec-' + section);
-  if (!container) return;
-  order.forEach(id => {
-    const el = document.getElementById(id);
-    if (el) container.appendChild(el.closest('div') || el);
-  });
-}
+// Load layout on startup
+loadLayout();
 
+// Update showSection to handle documents + mobile nav
 // Update showSection to handle documents + mobile nav
 const _showSectionBase = showSection;
 showSection = function(name, btn) {
