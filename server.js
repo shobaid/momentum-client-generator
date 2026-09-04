@@ -211,6 +211,27 @@ app.post('/api/generate', (req, res) => {
     // Update console log
     serverJs = serverJs.replace('PennPain Dashboard running', `${clientName} Dashboard running`);
 
+    // ── Strip unused requires based on enabled features ───────────────────
+    const needsSupabase = useDocs || useDashboardLogin;
+    const needsJwt = useDocs || useDashboardLogin;
+    const needsCookieParser = useDocs || useDashboardLogin;
+    const needsBcrypt = useDashboardLogin;
+    const needsGoogleapis = useSheets || useGMB;
+    const needsCrypto = useDocs;
+
+    if (!needsSupabase) {
+      serverJs = serverJs.replace("const { createClient } = require('@supabase/supabase-js');\n", '');
+      serverJs = serverJs.replace(/const supabase = createClient\([\s\S]*?\);\n/, '');
+    }
+    if (!needsBcrypt) serverJs = serverJs.replace("const bcrypt = require('bcryptjs');\n", '');
+    if (!needsJwt) serverJs = serverJs.replace("const jwt = require('jsonwebtoken');\n", '');
+    if (!needsCookieParser) {
+      serverJs = serverJs.replace("const cookieParser = require('cookie-parser');\n", '');
+      serverJs = serverJs.replace("app.use(cookieParser());\n", '');
+    }
+    if (!needsGoogleapis) serverJs = serverJs.replace("const { google } = require('googleapis');\n", '');
+    if (!needsCrypto) serverJs = serverJs.replace("const crypto = require('crypto');\n", '');
+
     // ── package.json ──────────────────────────────────────────────────────
     const deps = {
       "express": "^4.18.2",
@@ -218,13 +239,11 @@ app.post('/api/generate', (req, res) => {
       "google-auth-library": "^9.0.0",
       "dotenv": "^16.3.1"
     };
-    if (useSheets || useGMB) deps["googleapis"] = "^140.0.0";
-    if (useDocs || useDashboardLogin) {
-      deps["@supabase/supabase-js"] = "^2.38.0";
-      deps["cookie-parser"] = "^1.4.6";
-      deps["jsonwebtoken"] = "^9.0.2";
-    }
-    if (useDashboardLogin) deps["bcryptjs"] = "^2.4.3";
+    if (needsGoogleapis) deps["googleapis"] = "^140.0.0";
+    if (needsJwt) deps["jsonwebtoken"] = "^9.0.2";
+    if (needsCookieParser) deps["cookie-parser"] = "^1.4.6";
+    if (needsSupabase) deps["@supabase/supabase-js"] = "^2.38.0";
+    if (needsBcrypt) deps["bcryptjs"] = "^2.4.3";
 
     const packageJson = JSON.stringify({
       name: `${slug}-dashboard`,
