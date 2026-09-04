@@ -1740,10 +1740,11 @@ function cancelLayout() {
 // Initialize on load
 setTimeout(initGridstack, 1000);
 
-// Update showSection to handle documents
-const _origShowSection = showSection;
+// Update showSection to handle documents + mobile nav
+const _showSectionBase = showSection;
 showSection = function(name, btn) {
-  _origShowSection(name, btn);
+  _showSectionBase(name, btn);
+  if(window.innerWidth<=900) closeMobileNav();
   if (name === 'documents') {
     checkReviewSession().then(() => renderDocSection());
   }
@@ -1814,8 +1815,7 @@ function closeMobileNav() {
   document.getElementById('mainSidebar').classList.remove('open');
   document.getElementById('mobileOverlay').classList.remove('show');
 }
-const _origShowSection = showSection;
-showSection = function(name, btn) { _origShowSection(name, btn); if(window.innerWidth<=900) closeMobileNav(); };
+
 
 // ── GMB render ────────────────────────────────────────────────────────────
 function renderGMB() {
