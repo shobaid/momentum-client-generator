@@ -32,7 +32,7 @@ app.post('/api/generate', (req, res) => {
       qualifiedLabel,
       supabaseUrl, redirectUri,
       useGA4, useGSC, useWC, useSheets, useDocs, useQualified, useAdSpend,
-      useGMB, useDashboardLogin
+      useGMB, useDashboardLogin, gmbTab, dashUsers
     } = config;
 
     const slug     = toSlug(clientName);
@@ -179,6 +179,11 @@ app.post('/api/generate', (req, res) => {
     serverJs = serverJs.replace("'1cXnqHBu9OJXA-TIemxTAm8tkKNDOMbY8hWgWlpbi3P4'", `'${sheetId || ''}'`);
     serverJs = serverJs.replace("'dashboard_data'", `'${sheetTab || 'dashboard_data'}'`);
     serverJs = serverJs.replace(/%%SLUG%%/g, slug);
+    // GMB tab name
+    const gmbTabName = gmbTab || 'gmb_data';
+    serverJs = serverJs.replace("'gmb_data'", `'${gmbTabName}'`);
+    indexHtml = indexHtml.replace(/gmb_data sheet tab/g, `${gmbTabName} sheet tab`);
+    indexHtml = indexHtml.replace(/gmb_data tab/g, `${gmbTabName} tab`);
     serverJs = serverJs.replace(/%%AGENCY_LABEL%%/g, agency);
     serverJs = serverJs.replace(/%%CLIENT_NAME%%/g, clientName);
 
@@ -293,7 +298,20 @@ app.post('/api/generate', (req, res) => {
     let supabaseSql = `-- ${clientName} Dashboard — Supabase Setup\n-- Run this in the Supabase SQL Editor\n\n`;
 
     if (useDashboardLogin) {
-      supabaseSql += `-- Dashboard Users (email/password login)\nCREATE TABLE dashboard_users (\n  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,\n  email TEXT UNIQUE NOT NULL,\n  password_hash TEXT NOT NULL,\n  name TEXT,\n  role TEXT DEFAULT 'viewer',\n  created_at TIMESTAMPTZ DEFAULT NOW()\n);\nALTER TABLE dashboard_users ENABLE ROW LEVEL SECURITY;\nCREATE POLICY "service_role_all" ON dashboard_users FOR ALL USING (true);\nGRANT ALL ON dashboard_users TO service_role;\n\n-- Add users (password: Momentum2026! — change after first login)\n-- Generate bcrypt hashes at: https://bcrypt-generator.com\n-- INSERT INTO dashboard_users (email, name, role, password_hash) VALUES\n-- ('user@email.com', 'Name', 'viewer', 'bcrypt_hash_here');\n\n`;
+      // Generate bcrypt hashes for each user
+      const bcrypt = require('bcryptjs');
+      const userInserts = (dashUsers || []).map(u => {
+        const hash = bcrypt.hashSync(u.password, 10);
+        const name = (u.name || u.email).replace(/'/g, "''");
+        const email = u.email.replace(/'/g, "''");
+        return `('${email}', '${name}', '${u.role || 'viewer'}', '${hash}')`;
+      }).join(',\n  ');
+
+      const userSql = userInserts
+        ? `\n-- Initial users\nINSERT INTO dashboard_users (email, name, role, password_hash) VALUES\n  ${userInserts};\n`
+        : `\n-- Add users:\n-- INSERT INTO dashboard_users (email, name, role, password_hash) VALUES\n-- ('user@email.com', 'Name', 'viewer', bcrypt_hash_here);\n`;
+
+      supabaseSql += `-- Dashboard Users (email/password login)\nCREATE TABLE IF NOT EXISTS dashboard_users (\n  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,\n  email TEXT UNIQUE NOT NULL,\n  password_hash TEXT NOT NULL,\n  name TEXT,\n  role TEXT DEFAULT 'viewer',\n  created_at TIMESTAMPTZ DEFAULT NOW()\n);\nALTER TABLE dashboard_users ENABLE ROW LEVEL SECURITY;\nCREATE POLICY "service_role_all" ON dashboard_users FOR ALL USING (true);\nGRANT ALL ON dashboard_users TO service_role;\n${userSql}\n`;
     }
 
     if (useDocs) {

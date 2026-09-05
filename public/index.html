@@ -284,7 +284,11 @@ textarea:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-lig
           <div class="sub-fields" id="sub-docs">
             <div class="field-row">
               <div class="field"><label>Supabase URL</label><input type="url" id="g-supabaseUrl" placeholder="https://xxxx.supabase.co" style="font-family:var(--mono)"></div>
-              <div class="field"><label>Redirect URI</label><input type="url" id="g-redirectUri" placeholder="http://localhost:3000/auth/callback" style="font-family:var(--mono)"></div>
+              <div class="field">
+                <label>Redirect URI</label>
+                <input type="url" id="g-redirectUri" placeholder="https://your-client.vercel.app/auth/callback" style="font-family:var(--mono)">
+                <div class="hint">Your Vercel deployment URL + <code>/auth/callback</code>. Set this in Google Cloud → APIs & Services → Credentials → OAuth 2.0 Client → Authorized redirect URIs. Also add <code>http://localhost:3000/auth/callback</code> for local testing.</div>
+              </div>
             </div>
             <div class="hint" style="margin-top:-6px">Supabase service key and OAuth secrets go in the .env file — not here</div>
           </div>
@@ -302,18 +306,40 @@ textarea:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-lig
           </div>
 
           <div class="feature-row" style="margin-top:8px">
-            <div class="feature-info"><span style="font-size:18px">💰</span><div><div class="feature-name">Ad Spend Tracking</div><div class="feature-desc">Show ad spend KPI and chart from Google Sheets — requires Google Sheets</div></div></div>
+            <div class="feature-info"><span style="font-size:18px">💰</span><div><div class="feature-name">Ad Spend Tracking</div><div class="feature-desc">Show ad spend KPI from Google Sheets — sheet must have columns: Date, Week Start, Week End, then data columns</div></div></div>
             <button class="toggle" id="tog-adspend" onclick="toggleFeat('adspend')"></button>
+          </div>
+          <div class="sub-fields" id="sub-adspend">
+            <div class="hint" style="padding:8px 12px;background:rgba(99,102,241,0.08);border-radius:6px;border:1px solid rgba(99,102,241,0.2);color:#a5b4fc;margin-bottom:10px">
+              📋 Sheet structure: <strong>Col A</strong> = Date label · <strong>Col B</strong> = Week Start (YYYY-MM-DD) · <strong>Col C</strong> = Week End (YYYY-MM-DD) · then your data columns below
+            </div>
+            <div class="hint">Configure the Sheet ID and Tab in the <strong>Google Sheets</strong> data source above. The column builder there defines your data columns (e.g. Ad Spend, NP Booked This Month, NP Total).</div>
           </div>
 
           <div class="feature-row" style="margin-top:8px">
-            <div class="feature-info"><span style="font-size:18px">📍</span><div><div class="feature-name">Google Business Profile</div><div class="feature-desc">GBP impressions, calls, directions, website clicks — exported from Agency Analytics to a gmb_data sheet tab</div></div></div>
+            <div class="feature-info"><span style="font-size:18px">📍</span><div><div class="feature-name">Google Business Profile</div><div class="feature-desc">GBP impressions, calls, directions, website clicks — via Agency Analytics Google Sheets add-on</div></div></div>
             <button class="toggle" id="tog-gmb" onclick="toggleFeat('gmb')"></button>
+          </div>
+          <div class="sub-fields" id="sub-gmb">
+            <div class="field">
+              <label>GMB Sheet Tab Name</label>
+              <input type="text" id="g-gmbTab" placeholder="gmb_data" value="gmb_data" style="font-family:var(--mono)">
+              <div class="hint">The tab name in your Google Sheet where Agency Analytics exports GBP data</div>
+            </div>
           </div>
 
           <div class="feature-row" style="margin-top:8px">
             <div class="feature-info"><span style="font-size:18px">🔐</span><div><div class="feature-name">Dashboard Login</div><div class="feature-desc">Protect the dashboard with email/password login — requires Supabase</div></div></div>
             <button class="toggle" id="tog-dashLogin" onclick="toggleFeat('dashLogin')"></button>
+          </div>
+          <div class="sub-fields" id="sub-dashLogin">
+            <div style="font-size:11px;font-weight:600;font-family:var(--mono);color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:10px">Initial Users</div>
+            <div id="dashUsersContainer"></div>
+            <button class="add-col-btn" onclick="addDashUser()" style="margin-top:8px">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Add User
+            </button>
+            <div class="hint" style="margin-top:8px">Users are added to Supabase <code>dashboard_users</code> table. Passwords are hashed with bcrypt in the generated SQL.</div>
           </div>
           </div>
 
@@ -626,7 +652,9 @@ async function generateDashboard() {
     redirectUri: document.getElementById('g-redirectUri').value.trim() || 'http://localhost:3000/auth/callback',
     useGA4: src.ga4, useGSC: src.gsc, useWC: src.wc, useSheets: src.sheets,
     useDocs: feat.docs, useQualified: feat.qualified, useAdSpend: feat.adspend,
-    useGMB: feat.gmb, useDashboardLogin: feat.dashLogin
+    useGMB: feat.gmb, useDashboardLogin: feat.dashLogin,
+    gmbTab: document.getElementById('g-gmbTab')?.value?.trim() || 'gmb_data',
+    dashUsers: feat.dashLogin ? getDashUsers() : []
   };
 
   try {
