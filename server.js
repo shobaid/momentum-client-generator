@@ -32,7 +32,7 @@ app.post('/api/generate', (req, res) => {
       qualifiedLabel,
       supabaseUrl, redirectUri,
       useGA4, useGSC, useWC, useSheets, useDocs, useQualified, useAdSpend,
-      useGMB, useDashboardLogin, gmbTab, dashUsers
+      useGMB, useDashboardLogin, gmbTab, gmbSheetId, adSpendColumns, dashUsers
     } = config;
 
     const slug     = toSlug(clientName);
@@ -179,11 +179,27 @@ app.post('/api/generate', (req, res) => {
     serverJs = serverJs.replace("'1cXnqHBu9OJXA-TIemxTAm8tkKNDOMbY8hWgWlpbi3P4'", `'${sheetId || ''}'`);
     serverJs = serverJs.replace("'dashboard_data'", `'${sheetTab || 'dashboard_data'}'`);
     serverJs = serverJs.replace(/%%SLUG%%/g, slug);
-    // GMB tab name
+    // GMB tab name and sheet ID
     const gmbTabName = gmbTab || 'gmb_data';
     serverJs = serverJs.replace("'gmb_data'", `'${gmbTabName}'`);
     indexHtml = indexHtml.replace(/gmb_data sheet tab/g, `${gmbTabName} sheet tab`);
     indexHtml = indexHtml.replace(/gmb_data tab/g, `${gmbTabName} tab`);
+    // GMB separate sheet ID (if different from main sheet)
+    if (gmbSheetId) {
+      serverJs = serverJs.replace(
+        "range: 'gmb_data!A:J'",
+        `spreadsheetId: '${gmbSheetId}',
+      range: '${gmbTabName}!A:J'`
+      );
+      // Also update the GMB endpoint to use its own sheet ID
+      serverJs = serverJs.replace(
+        "const GMB_SHEET_ID = SHEET_ID;",
+        `const GMB_SHEET_ID = '${gmbSheetId}';`
+      );
+    } else {
+      serverJs = serverJs.replace("const GMB_SHEET_ID = SHEET_ID;", '');
+      serverJs = serverJs.replace("spreadsheetId: GMB_SHEET_ID,", `spreadsheetId: SHEET_ID,`);
+    }
     serverJs = serverJs.replace(/%%AGENCY_LABEL%%/g, agency);
     serverJs = serverJs.replace(/%%CLIENT_NAME%%/g, clientName);
 
@@ -191,8 +207,14 @@ app.post('/api/generate', (req, res) => {
     const colsJson = JSON.stringify(
       (sheetColumns || []).map(c => ({ key: c.key, label: c.label, color: c.color, type: c.type || 'number' }))
     );
-    serverJs = serverJs.replace('%%SHEET_COLUMNS%%', colsJson);
     serverJs = serverJs.replace('%%QUALIFIED_LABEL%%', qlabel);
+
+    // ── Ad Spend Columns — override sheetColumns if provided ────────────────
+    const finalSheetColumns = (useAdSpend && adSpendColumns && adSpendColumns.length > 0)
+      ? adSpendColumns
+      : sheetColumns || [];
+    const finalColsJson = JSON.stringify(finalSheetColumns);
+    serverJs = serverJs.replace('%%SHEET_COLUMNS%%', finalColsJson);
 
     // ── Conditional KPI cards ─────────────────────────────────────────────
     const wcLeadsCard = useWC

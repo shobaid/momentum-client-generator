@@ -310,10 +310,15 @@ textarea:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-lig
             <button class="toggle" id="tog-adspend" onclick="toggleFeat('adspend')"></button>
           </div>
           <div class="sub-fields" id="sub-adspend">
-            <div class="hint" style="padding:8px 12px;background:rgba(99,102,241,0.08);border-radius:6px;border:1px solid rgba(99,102,241,0.2);color:#a5b4fc;margin-bottom:10px">
-              📋 Sheet structure: <strong>Col A</strong> = Date label · <strong>Col B</strong> = Week Start (YYYY-MM-DD) · <strong>Col C</strong> = Week End (YYYY-MM-DD) · then your data columns below
+            <div class="hint" style="padding:8px 12px;background:rgba(99,102,241,0.08);border-radius:6px;border:1px solid rgba(99,102,241,0.2);color:#a5b4fc;margin-bottom:12px">
+              📋 Required sheet structure: <strong>Col A</strong> = Date label &nbsp;·&nbsp; <strong>Col B</strong> = Week Start (YYYY-MM-DD) &nbsp;·&nbsp; <strong>Col C</strong> = Week End (YYYY-MM-DD) &nbsp;·&nbsp; then your data columns (D, E, F…)
             </div>
-            <div class="hint">Configure the Sheet ID and Tab in the <strong>Google Sheets</strong> data source above. The column builder there defines your data columns (e.g. Ad Spend, NP Booked This Month, NP Total).</div>
+            <div class="hint" style="margin-bottom:12px">Configure the <strong>Sheet ID</strong> and <strong>Tab name</strong> in the Google Sheets data source section above. Then define your data columns (starting from Col D) below:</div>
+            <div id="adspendColsContainer"></div>
+            <button class="add-col-btn" onclick="addAdSpendColumn()" style="margin-top:4px">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Add Data Column
+            </button>
           </div>
 
           <div class="feature-row" style="margin-top:8px">
@@ -322,9 +327,14 @@ textarea:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-lig
           </div>
           <div class="sub-fields" id="sub-gmb">
             <div class="field">
+              <label>GMB Google Sheet ID</label>
+              <input type="text" id="g-gmbSheetId" placeholder="Leave blank to use the same Sheet ID as above" style="font-family:var(--mono)">
+              <div class="hint">If GBP data is in a different Google Sheet than your main sheet, paste its ID here. Otherwise leave blank.</div>
+            </div>
+            <div class="field">
               <label>GMB Sheet Tab Name</label>
               <input type="text" id="g-gmbTab" placeholder="gmb_data" value="gmb_data" style="font-family:var(--mono)">
-              <div class="hint">The tab name in your Google Sheet where Agency Analytics exports GBP data</div>
+              <div class="hint">The tab name where Agency Analytics exports GBP data</div>
             </div>
           </div>
 
@@ -531,7 +541,10 @@ function toggleFeat(id) {
   const sub = document.getElementById('sub-'+id);
   if(sub) sub.classList.toggle('open', feat[id]);
   if(id==='qualified' && feat[id] && !src.wc) { src.wc=true; document.getElementById('tog-wc').classList.add('on'); document.getElementById('sub-wc').classList.add('open'); }
-  if(id==='adspend' && feat[id] && !src.sheets) { src.sheets=true; document.getElementById('tog-sheets').classList.add('on'); document.getElementById('sub-sheets').classList.add('open'); }
+  if(id==='adspend' && feat[id]) {
+    if (!src.sheets) { src.sheets=true; document.getElementById('tog-sheets').classList.add('on'); document.getElementById('sub-sheets').classList.add('open'); }
+    if (document.getElementById('adspendColsContainer').children.length === 0) addAdSpendColumn();
+  }
 }
 
 // ── Sheet columns ──────────────────────────────────────────────────────────
@@ -573,6 +586,103 @@ function addSheetColumn() {
 function removeSheetColumn(idx) {
   const el = document.getElementById(`col-row-${idx}`);
   if(el) el.remove();
+}
+
+// ── Dashboard users ───────────────────────────────────────────────────────
+let dashUserCount = 0;
+
+function addDashUser() {
+  dashUserCount++;
+  const id = dashUserCount;
+  const div = document.createElement('div');
+  div.className = 'col-row';
+  div.id = `dash-user-${id}`;
+  div.style.cssText = 'flex-wrap:wrap;gap:8px;align-items:flex-end';
+  div.innerHTML = `
+    <div class="field" style="margin-bottom:0;flex:2;min-width:160px">
+      <label>Email</label>
+      <input type="email" placeholder="user@email.com" id="du-email-${id}">
+    </div>
+    <div class="field" style="margin-bottom:0;flex:1;min-width:100px">
+      <label>Name</label>
+      <input type="text" placeholder="Full Name" id="du-name-${id}">
+    </div>
+    <div class="field" style="margin-bottom:0;flex:1;min-width:120px">
+      <label>Password</label>
+      <input type="password" placeholder="••••••••" id="du-pass-${id}">
+    </div>
+    <div class="field" style="margin-bottom:0;flex:0 0 100px">
+      <label>Role</label>
+      <select id="du-role-${id}" style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--radius-sm);color:var(--text);padding:9px 12px;font-size:13px">
+        <option value="viewer">Viewer</option>
+        <option value="admin">Admin</option>
+      </select>
+    </div>
+    <button class="remove-col" onclick="document.getElementById('dash-user-${id}').remove()" title="Remove">✕</button>
+  `;
+  document.getElementById('dashUsersContainer').appendChild(div);
+}
+
+function getDashUsers() {
+  const users = [];
+  document.querySelectorAll('[id^="dash-user-"]').forEach(row => {
+    const id = row.id.replace('dash-user-','');
+    const email = document.getElementById(`du-email-${id}`)?.value?.trim();
+    const name = document.getElementById(`du-name-${id}`)?.value?.trim();
+    const password = document.getElementById(`du-pass-${id}`)?.value;
+    const role = document.getElementById(`du-role-${id}`)?.value || 'viewer';
+    if (email && password) users.push({ email, name, password, role });
+  });
+  return users;
+}
+
+// ── Ad Spend columns ──────────────────────────────────────────────────────
+let adspendColCount = 0;
+const ADSPEND_COLORS = ['#f87171','#fb923c','#fbbf24','#34d399','#60a5fa','#a78bfa'];
+
+function addAdSpendColumn() {
+  adspendColCount++;
+  const id = adspendColCount;
+  const colLetter = String.fromCharCode(67 + id); // D, E, F...
+  const color = ADSPEND_COLORS[(id-1) % ADSPEND_COLORS.length];
+  const div = document.createElement('div');
+  div.className = 'col-row';
+  div.id = `adspend-col-${id}`;
+  div.innerHTML = `
+    <div class="field" style="margin-bottom:0;flex:2">
+      <label>Col ${colLetter} — Label</label>
+      <input type="text" id="asc-label-${id}" placeholder="e.g. Ad Spend, NP Booked, Revenue">
+    </div>
+    <div class="field" style="margin-bottom:0;flex:1">
+      <label>Type</label>
+      <select id="asc-type-${id}" style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--radius-sm);color:var(--text);padding:9px 12px;font-size:13px">
+        <option value="currency">Currency ($)</option>
+        <option value="number">Number</option>
+        <option value="integer">Integer</option>
+      </select>
+    </div>
+    <div class="field" style="margin-bottom:0;flex:0 0 50px">
+      <label>Color</label>
+      <input type="color" id="asc-color-${id}" value="${color}" style="width:42px;height:36px">
+    </div>
+    <button class="remove-col" onclick="document.getElementById('adspend-col-${id}').remove()" title="Remove">✕</button>
+  `;
+  document.getElementById('adspendColsContainer').appendChild(div);
+}
+
+function getAdSpendColumns() {
+  const cols = [];
+  for (let i = 1; i <= adspendColCount; i++) {
+    const labelEl = document.getElementById(`asc-label-${i}`);
+    if (!labelEl || !labelEl.closest('[id^="adspend-col-"]')) continue;
+    const label = labelEl.value.trim();
+    if (!label) continue;
+    const type = document.getElementById(`asc-type-${i}`)?.value || 'currency';
+    const color = document.getElementById(`asc-color-${i}`)?.value || '#f87171';
+    const key = label.toLowerCase().replace(/[^a-z0-9]+/g,'_');
+    cols.push({ key, label, type, color });
+  }
+  return cols;
 }
 
 function getSheetColumns() {
@@ -654,6 +764,8 @@ async function generateDashboard() {
     useDocs: feat.docs, useQualified: feat.qualified, useAdSpend: feat.adspend,
     useGMB: feat.gmb, useDashboardLogin: feat.dashLogin,
     gmbTab: document.getElementById('g-gmbTab')?.value?.trim() || 'gmb_data',
+    gmbSheetId: document.getElementById('g-gmbSheetId')?.value?.trim() || null,
+    adSpendColumns: feat.adspend ? getAdSpendColumns() : [],
     dashUsers: feat.dashLogin ? getDashUsers() : []
   };
 
