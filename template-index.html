@@ -272,26 +272,12 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
 .dash-user-avatar { width: 24px; height: 24px; border-radius: 50%; background: rgba(0,208,132,0.15); display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; color: var(--green); }
 .dash-user-name { font-size: 12px; font-weight: 500; color: var(--text); }
 
-/* ── Gridstack layout ── */
+
 .grid-stack { background: transparent; }
 .grid-stack-item-content { background: transparent; overflow: visible; }
 .grid-stack-item { cursor: grab; }
 .grid-stack-item:active { cursor: grabbing; }
-/* ── Layout editing ── */
-.layout-edit-bar { display: none; align-items: center; gap: 10px; padding: 8px 14px; background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.3); border-radius: var(--radius-sm); margin-bottom: 1rem; font-size: 12px; color: #818cf8; font-family: var(--font-mono); flex-wrap: wrap; }
-.layout-edit-bar.show { display: flex; }
-.layout-edit-bar button { background: #6366f1; color: #fff; border: none; border-radius: 6px; padding: 5px 12px; font-size: 11px; font-weight: 600; cursor: pointer; font-family: var(--font-body); }
-.layout-edit-bar button.cancel-btn { background: transparent; color: var(--muted); border: 1px solid var(--border); }
-.layout-edit-bar button.reset-btn { background: rgba(239,68,68,0.15); color: #f87171; border: 1px solid rgba(239,68,68,0.3); }
-.edit-layout-btn { display: flex; align-items: center; gap: 6px; background: none; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 5px 10px; font-size: 11px; color: var(--muted); cursor: pointer; font-family: var(--font-body); transition: all 0.15s; }
-.edit-layout-btn:hover { border-color: #6366f1; color: #818cf8; }
-/* Individual card drag/hide */
-.layout-hide-btn { position: absolute; top: 6px; right: 6px; z-index: 20; background: rgba(15,17,23,0.85); border: 1px solid var(--border); border-radius: 4px; color: var(--muted); cursor: pointer; font-size: 11px; padding: 2px 7px; line-height: 1.5; transition: all 0.15s; pointer-events: all; }
-.layout-hide-btn:hover { background: rgba(239,68,68,0.2); color: #f87171; border-color: rgba(239,68,68,0.4); }
-.layout-editing-active [data-layout-draggable] { cursor: grab !important; outline: 1px dashed rgba(99,102,241,0.25); outline-offset: 2px; transition: outline 0.15s; }
-.layout-editing-active [data-layout-draggable]:hover { outline: 2px dashed rgba(99,102,241,0.6); box-shadow: 0 0 0 4px rgba(99,102,241,0.08); }
-.layout-dragging { opacity: 0.35 !important; }
-.layout-drag-over { outline: 2px solid #6366f1 !important; box-shadow: 0 0 0 4px rgba(99,102,241,0.2) !important; }
+
 </style>
 </head>
 <body>
@@ -377,16 +363,7 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
       </div>
     </div>
     <div class="topbar-right">
-      <div class="layout-edit-bar" id="layoutEditBar">
-        <span>✏️ Drag to reorder · ✕ to hide cards</span>
-        <button onclick="saveLayout()">Save Layout</button>
-        <button class="reset-btn" onclick="resetLayout()">Reset Section</button>
-        <button class="cancel-btn" onclick="cancelLayout()">Cancel</button>
-      </div>
-      <button class="edit-layout-btn" id="editLayoutBtn" onclick="toggleLayoutEdit()" title="Customize dashboard layout">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-        Layout
-      </button>
+
       <div class="dash-user-chip" id="dashUserChip" onclick="dashLogout()" title="Click to sign out" style="display:none">
         <div class="dash-user-avatar" id="dashUserAvatar">?</div>
         <span class="dash-user-name" id="dashUserName">–</span>
@@ -1013,7 +990,6 @@ async function loadData() {
     document.getElementById('loadingText').textContent='Rendering…';
     cachedData={cur,prev,ts,srcs,pages,devices,newUsers,bounceTs,gscSum,gscTs,gscQ,convEvents,wcData,npData,adSpendData,gmbData,start,end};
     renderKPIs(); renderSection(currentSection);
-    setTimeout(()=>applyLayoutToSection(currentSection), 300);
     document.getElementById('loadingState').style.display='none';
     document.getElementById('dashboardWrap').style.display='block';
     document.getElementById('updatedLine').textContent=`Updated ${new Date().toLocaleTimeString()} · ${start} → ${end}`;
@@ -1094,7 +1070,7 @@ function renderKPIs() {
 }
 
 function renderSection(name) {
-  if(name==='gmb'){ renderGMB(); setTimeout(()=>applyLayoutToSection(name),300); return; }
+  if(name==='gmb'){ renderGMB(); return; }
   const {ts,srcs,gscTs,bounceTs,devices,pages,gscQ,newUsers,gscSum}=cachedData;
 
   if(name==='overview') {
@@ -1652,248 +1628,7 @@ async function submitNewDoc() {
   }
 }
 
-// ── Layout System ─────────────────────────────────────────────────────────
-// Drag individual cards, hide/show per card, save to server
-let layoutEditing = false;
-let layoutData = {};
-let layoutSnapshot = {};
-
-async function loadLayout() {
-  try {
-    const res = await fetch('/api/layout');
-    const data = await res.json();
-    layoutData = data.layout || {};
-  } catch(e) { layoutData = {}; }
-}
-
-function getCardId(card) {
-  // Use existing id, or generate stable one from content
-  if (card.id) return card.id;
-  const label = card.querySelector('[class*="mono"], .section-label, h2, h3, [style*="uppercase"]');
-  const text = (label?.textContent || card.textContent || '').trim().slice(0,30).replace(/\s+/g,'-').toLowerCase();
-  return 'card-' + text.replace(/[^a-z0-9-]/g,'');
-}
-
-function applyLayoutToSection(section) {
-  const container = document.getElementById('sec-' + section);
-  if (!container) return;
-  const sectionLayout = layoutData[section];
-  if (!sectionLayout) return;
-
-  // Hide cards
-  if (sectionLayout.hidden?.length) {
-    sectionLayout.hidden.forEach(id => {
-      const el = container.querySelector('[data-layout-id="' + id + '"]');
-      if (el) el.style.setProperty('display','none','important');
-    });
-  }
-
-  // Reorder — append in saved order
-  if (sectionLayout.order?.length) {
-    const parent = container;
-    sectionLayout.order.forEach(id => {
-      const el = container.querySelector('[data-layout-id="' + id + '"]');
-      if (el) parent.appendChild(el);
-    });
-  }
-}
-
-function assignLayoutIds(section) {
-  const container = document.getElementById('sec-' + section);
-  if (!container) return;
-  // Assign data-layout-id to every chart-card and major section block
-  container.querySelectorAll('.chart-card, .chart-row, .chart-row-2, .stats-grid, .stat-grid, .section-label').forEach((el, i) => {
-    if (!el.getAttribute('data-layout-id')) {
-      el.setAttribute('data-layout-id', getCardId(el) || `${section}-item-${i}`);
-    }
-  });
-}
-
-let dragSrcEl = null;
-
-function onDragStart(e) {
-  dragSrcEl = this;
-  this.classList.add('layout-dragging');
-  e.dataTransfer.effectAllowed = 'move';
-  e.dataTransfer.setData('text/plain', this.getAttribute('data-layout-id'));
-}
-function onDragOver(e) {
-  e.preventDefault();
-  e.dataTransfer.dropEffect = 'move';
-  if (this !== dragSrcEl) this.classList.add('layout-drag-over');
-  return false;
-}
-function onDragLeave() { this.classList.remove('layout-drag-over'); }
-function onDrop(e) {
-  e.stopPropagation();
-  this.classList.remove('layout-drag-over');
-  if (dragSrcEl && this !== dragSrcEl) {
-    const parent = this.parentNode;
-    const srcIdx = Array.from(parent.children).indexOf(dragSrcEl);
-    const tgtIdx = Array.from(parent.children).indexOf(this);
-    if (srcIdx < tgtIdx) parent.insertBefore(dragSrcEl, this.nextSibling);
-    else parent.insertBefore(dragSrcEl, this);
-  }
-  return false;
-}
-function onDragEnd() {
-  this.classList.remove('layout-dragging');
-  document.querySelectorAll('.layout-drag-over').forEach(el => el.classList.remove('layout-drag-over'));
-}
-
-function addLayoutControls(el, section) {
-  if (el.querySelector('.layout-hide-btn')) return; // already has controls
-
-  // Hide button
-  const hideBtn = document.createElement('button');
-  hideBtn.className = 'layout-hide-btn';
-  hideBtn.innerHTML = '✕';
-  hideBtn.title = 'Hide this card';
-  hideBtn.onclick = (e) => {
-    e.stopPropagation();
-    el.style.setProperty('display','none','important');
-  };
-  el.style.position = 'relative';
-  el.appendChild(hideBtn);
-}
-
-function removeLayoutControls(container) {
-  container.querySelectorAll('.layout-hide-btn').forEach(b => b.remove());
-  container.querySelectorAll('[data-layout-draggable]').forEach(el => {
-    el.draggable = false;
-    el.removeAttribute('data-layout-draggable');
-    el.removeEventListener('dragstart', onDragStart);
-    el.removeEventListener('dragover', onDragOver);
-    el.removeEventListener('dragleave', onDragLeave);
-    el.removeEventListener('drop', onDrop);
-    el.removeEventListener('dragend', onDragEnd);
-  });
-}
-
-function enableLayoutEditing(section) {
-  const container = document.getElementById('sec-' + section);
-  if (!container) return;
-  assignLayoutIds(section);
-
-  // Make each chart-card individually draggable
-  container.querySelectorAll('.chart-card').forEach(card => {
-    if (card.getAttribute('data-layout-draggable')) return;
-    card.setAttribute('data-layout-draggable', '1');
-    card.draggable = true;
-    card.style.position = 'relative';
-    card.style.cursor = 'grab';
-    card.addEventListener('dragstart', onDragStart);
-    card.addEventListener('dragover', onDragOver);
-    card.addEventListener('dragleave', onDragLeave);
-    card.addEventListener('drop', onDrop);
-    card.addEventListener('dragend', onDragEnd);
-    addLayoutControls(card, section);
-    // Show hidden cards
-    card.style.removeProperty('display');
-  });
-
-  // Also make chart-row and chart-row-2 elements draggable as a unit
-  container.querySelectorAll('.chart-row, .chart-row-2').forEach(row => {
-    if (row.getAttribute('data-layout-draggable')) return;
-    row.setAttribute('data-layout-draggable', '1');
-    row.draggable = true;
-    row.style.cursor = 'grab';
-    row.addEventListener('dragstart', onDragStart);
-    row.addEventListener('dragover', onDragOver);
-    row.addEventListener('dragleave', onDragLeave);
-    row.addEventListener('drop', onDrop);
-    row.addEventListener('dragend', onDragEnd);
-    addLayoutControls(row, section);
-    row.style.removeProperty('display');
-  });
-
-  container.classList.add('layout-editing-active');
-}
-
-function toggleLayoutEdit() {
-  layoutEditing = !layoutEditing;
-  const section = currentSection;
-  document.getElementById('layoutEditBar').classList.toggle('show', layoutEditing);
-  document.getElementById('editLayoutBtn').style.display = layoutEditing ? 'none' : 'flex';
-
-  if (layoutEditing) {
-    layoutSnapshot = JSON.parse(JSON.stringify(layoutData));
-    enableLayoutEditing(section);
-  } else {
-    const container = document.getElementById('sec-' + section);
-    container?.classList.remove('layout-editing-active');
-    removeLayoutControls(container);
-    applyLayoutToSection(section);
-  }
-}
-
-async function saveLayout() {
-  const section = currentSection;
-  const container = document.getElementById('sec-' + section);
-
-  // Collect current order of all layout items
-  const allItems = Array.from(container.querySelectorAll('[data-layout-id]'));
-  const order = allItems.map(el => el.getAttribute('data-layout-id')).filter(Boolean);
-  const hidden = allItems
-    .filter(el => el.style.display === 'none' || getComputedStyle(el).display === 'none')
-    .map(el => el.getAttribute('data-layout-id')).filter(Boolean);
-
-  layoutData[section] = { order, hidden };
-
-  try {
-    await fetch('/api/layout', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ layout: layoutData })
-    });
-  } catch(e) { console.error('Layout save failed:', e); }
-
-  container.classList.remove('layout-editing-active');
-  removeLayoutControls(container);
-  applyLayoutToSection(section);
-  layoutEditing = false;
-  document.getElementById('layoutEditBar').classList.remove('show');
-  document.getElementById('editLayoutBtn').style.display = 'flex';
-}
-
-async function resetLayout() {
-  const section = currentSection;
-  delete layoutData[section];
-  try {
-    await fetch('/api/layout', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ layout: layoutData })
-    });
-  } catch(e) {}
-
-  const container = document.getElementById('sec-' + section);
-  container.classList.remove('layout-editing-active');
-  removeLayoutControls(container);
-
-  // Show all hidden items
-  container.querySelectorAll('[data-layout-id]').forEach(el => el.style.removeProperty('display'));
-
-  layoutEditing = false;
-  document.getElementById('layoutEditBar').classList.remove('show');
-  document.getElementById('editLayoutBtn').style.display = 'flex';
-}
-
-function cancelLayout() {
-  const section = currentSection;
-  layoutData = JSON.parse(JSON.stringify(layoutSnapshot));
-  const container = document.getElementById('sec-' + section);
-  container.classList.remove('layout-editing-active');
-  removeLayoutControls(container);
-  applyLayoutToSection(section);
-  layoutEditing = false;
-  document.getElementById('layoutEditBar').classList.remove('show');
-  document.getElementById('editLayoutBtn').style.display = 'flex';
-}
-
-loadLayout();
-
-// // Update showSection to handle documents + mobile nav
+// Update showSection to handle documents + mobile nav
 // Update showSection to handle documents + mobile nav
 const _showSectionBase = showSection;
 showSection = function(name, btn) {

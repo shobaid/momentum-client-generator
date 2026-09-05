@@ -23,7 +23,6 @@ const SHEET_ID = '1cXnqHBu9OJXA-TIemxTAm8tkKNDOMbY8hWgWlpbi3P4';
 const SHEET_TAB = 'dashboard_data';
 const DASH_COOKIE = '%%SLUG%%-dashboard';
 const REVIEW_COOKIE = 'pp_reviewer';
-const LAYOUT_FILE = path.join(__dirname, 'layout.json');
 
 // Sheet columns — injected by generator
 const SHEET_COLUMNS = %%SHEET_COLUMNS%%;
@@ -79,29 +78,7 @@ function readSession(req) {
   } catch { return null; }
 }
 
-// ── Layout API ─────────────────────────────────────────────────────────────
-app.get('/api/layout', (req, res) => {
-  try {
-    if (fs.existsSync(LAYOUT_FILE)) {
-      const layout = JSON.parse(fs.readFileSync(LAYOUT_FILE, 'utf8'));
-      res.json({ ok: true, layout });
-    } else {
-      res.json({ ok: true, layout: null });
-    }
-  } catch (e) {
-    res.json({ ok: true, layout: null });
-  }
-});
 
-app.post('/api/layout', (req, res) => {
-  try {
-    const { layout } = req.body;
-    fs.writeFileSync(LAYOUT_FILE, JSON.stringify(layout, null, 2));
-    res.json({ ok: true });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
 
 // ── GA4 proxy ──────────────────────────────────────────────────────────────
 app.post('/api/ga4', async (req, res) => {
