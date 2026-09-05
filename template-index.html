@@ -285,19 +285,13 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text);
 .layout-edit-bar button.reset-btn { background: rgba(239,68,68,0.15); color: #f87171; border: 1px solid rgba(239,68,68,0.3); }
 .edit-layout-btn { display: flex; align-items: center; gap: 6px; background: none; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 5px 10px; font-size: 11px; color: var(--muted); cursor: pointer; font-family: var(--font-body); transition: all 0.15s; }
 .edit-layout-btn:hover { border-color: #6366f1; color: #818cf8; }
-/* Draggable cards */
-.layout-card { position: relative; }
-.layout-card.dragging { opacity: 0.4; }
-.layout-card.drag-over { outline: 2px dashed #6366f1; outline-offset: 2px; }
-.card-drag-handle { display: none; position: absolute; top: 8px; left: 8px; cursor: grab; color: var(--muted); z-index: 10; background: var(--bg2); border-radius: 4px; padding: 3px 4px; }
-.card-drag-handle:active { cursor: grabbing; }
-.card-hide-btn { display: none; position: absolute; top: 8px; right: 8px; cursor: pointer; color: var(--muted); z-index: 10; background: var(--bg2); border: 1px solid var(--border); border-radius: 4px; padding: 2px 6px; font-size: 11px; line-height: 1.4; transition: all 0.15s; }
-.card-hide-btn:hover { background: rgba(239,68,68,0.15); color: #f87171; border-color: rgba(239,68,68,0.3); }
-.layout-editing .layout-card { cursor: default; }
-.layout-editing .card-drag-handle { display: flex !important; align-items: center; gap: 4px; }
-.layout-editing .card-hide-btn { display: block !important; }
-.layout-editing .layout-card:hover { box-shadow: 0 0 0 2px rgba(99,102,241,0.4); }
-.layout-editing .layout-card[draggable="true"] { cursor: grab; }
+/* Individual card drag/hide */
+.layout-hide-btn { position: absolute; top: 6px; right: 6px; z-index: 20; background: rgba(15,17,23,0.85); border: 1px solid var(--border); border-radius: 4px; color: var(--muted); cursor: pointer; font-size: 11px; padding: 2px 7px; line-height: 1.5; transition: all 0.15s; pointer-events: all; }
+.layout-hide-btn:hover { background: rgba(239,68,68,0.2); color: #f87171; border-color: rgba(239,68,68,0.4); }
+.layout-editing-active [data-layout-draggable] { cursor: grab !important; outline: 1px dashed rgba(99,102,241,0.25); outline-offset: 2px; transition: outline 0.15s; }
+.layout-editing-active [data-layout-draggable]:hover { outline: 2px dashed rgba(99,102,241,0.6); box-shadow: 0 0 0 4px rgba(99,102,241,0.08); }
+.layout-dragging { opacity: 0.35 !important; }
+.layout-drag-over { outline: 2px solid #6366f1 !important; box-shadow: 0 0 0 4px rgba(99,102,241,0.2) !important; }
 </style>
 </head>
 <body>
@@ -1658,10 +1652,11 @@ async function submitNewDoc() {
   }
 }
 
-// ── Layout System (drag-to-reorder + hide/show cards) ────────────────────
+// ── Layout System ─────────────────────────────────────────────────────────
+// Drag individual cards, hide/show per card, save to server
 let layoutEditing = false;
-let layoutData = {}; // { sectionName: { order: [ids], hidden: [ids] } }
-let layoutSnapshot = {}; // for cancel
+let layoutData = {};
+let layoutSnapshot = {};
 
 async function loadLayout() {
   try {
@@ -1671,125 +1666,148 @@ async function loadLayout() {
   } catch(e) { layoutData = {}; }
 }
 
+function getCardId(card) {
+  // Use existing id, or generate stable one from content
+  if (card.id) return card.id;
+  const label = card.querySelector('[class*="mono"], .section-label, h2, h3, [style*="uppercase"]');
+  const text = (label?.textContent || card.textContent || '').trim().slice(0,30).replace(/\s+/g,'-').toLowerCase();
+  return 'card-' + text.replace(/[^a-z0-9-]/g,'');
+}
+
 function applyLayoutToSection(section) {
   const container = document.getElementById('sec-' + section);
   if (!container) return;
   const sectionLayout = layoutData[section];
   if (!sectionLayout) return;
 
-  // Apply hidden cards
+  // Hide cards
   if (sectionLayout.hidden?.length) {
     sectionLayout.hidden.forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.closest('.layout-card')?.style.setProperty('display','none','important');
+      const el = container.querySelector('[data-layout-id="' + id + '"]');
+      if (el) el.style.setProperty('display','none','important');
     });
   }
 
-  // Apply order
+  // Reorder — append in saved order
   if (sectionLayout.order?.length) {
+    const parent = container;
     sectionLayout.order.forEach(id => {
-      const card = document.getElementById(id)?.closest('.layout-card');
-      if (card) container.appendChild(card);
+      const el = container.querySelector('[data-layout-id="' + id + '"]');
+      if (el) parent.appendChild(el);
     });
   }
 }
 
-function wrapCardsInSection(section) {
+function assignLayoutIds(section) {
   const container = document.getElementById('sec-' + section);
   if (!container) return;
-
-  // Wrap direct children (rows/groups) — these are what get reordered
-  // Individual chart-cards within rows get hide buttons only
-  const directChildren = Array.from(container.children).filter(el =>
-    !el.classList.contains('layout-card') &&
-    !el.classList.contains('layout-edit-bar') &&
-    el.tagName === 'DIV'
-  );
-
-  directChildren.forEach((child, i) => {
-    // Create draggable row wrapper
-    const wrapper = document.createElement('div');
-    wrapper.className = 'layout-card';
-    const rowId = child.id || `layout-row-${section}-${i}`;
-    wrapper.setAttribute('data-card-id', rowId);
-    wrapper.style.position = 'relative';
-
-    // Drag handle on the row
-    const handle = document.createElement('div');
-    handle.className = 'card-drag-handle';
-    handle.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="7" x2="19" y2="7"/><line x1="5" y1="12" x2="19" y2="12"/><line x1="5" y1="17" x2="19" y2="17"/></svg> Drag row`;
-    handle.title = 'Drag to reorder this row';
-
-    // Hide button for the whole row
-    const hideBtn = document.createElement('button');
-    hideBtn.className = 'card-hide-btn';
-    hideBtn.textContent = '✕ Hide';
-    hideBtn.onclick = (e) => { e.stopPropagation(); hideCard(wrapper, section); };
-
-    wrapper.appendChild(handle);
-    wrapper.appendChild(hideBtn);
-    child.parentNode.insertBefore(wrapper, child);
-    wrapper.appendChild(child);
-
-    // Drag events
-    wrapper.draggable = false;
-    wrapper.addEventListener('dragstart', onDragStart);
-    wrapper.addEventListener('dragover', onDragOver);
-    wrapper.addEventListener('dragleave', onDragLeave);
-    wrapper.addEventListener('drop', onDrop);
-    wrapper.addEventListener('dragend', onDragEnd);
-
-    // Add hide buttons to individual cards within the row
-    child.querySelectorAll('.chart-card').forEach((card, ci) => {
-      if (card.querySelector('.card-hide-btn')) return; // skip if already has one
-      card.style.position = 'relative';
-      const cardHideBtn = document.createElement('button');
-      cardHideBtn.className = 'card-hide-btn';
-      cardHideBtn.textContent = '✕';
-      cardHideBtn.title = 'Hide this card';
-      cardHideBtn.onclick = (e) => {
-        e.stopPropagation();
-        card.style.setProperty('display','none','important');
-        // Track hidden individual cards
-        const cardId = card.id || `card-${section}-${i}-${ci}`;
-        card.setAttribute('data-hide-id', cardId);
-      };
-      card.appendChild(cardHideBtn);
-    });
+  // Assign data-layout-id to every chart-card and major section block
+  container.querySelectorAll('.chart-card, .chart-row, .chart-row-2, .stats-grid, .stat-grid, .section-label').forEach((el, i) => {
+    if (!el.getAttribute('data-layout-id')) {
+      el.setAttribute('data-layout-id', getCardId(el) || `${section}-item-${i}`);
+    }
   });
 }
 
-let dragSrc = null;
+let dragSrcEl = null;
+
 function onDragStart(e) {
-  dragSrc = this;
-  this.classList.add('dragging');
+  dragSrcEl = this;
+  this.classList.add('layout-dragging');
   e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', this.getAttribute('data-layout-id'));
 }
 function onDragOver(e) {
   e.preventDefault();
   e.dataTransfer.dropEffect = 'move';
-  if (this !== dragSrc) this.classList.add('drag-over');
+  if (this !== dragSrcEl) this.classList.add('layout-drag-over');
+  return false;
 }
-function onDragLeave() { this.classList.remove('drag-over'); }
+function onDragLeave() { this.classList.remove('layout-drag-over'); }
 function onDrop(e) {
-  e.preventDefault();
-  this.classList.remove('drag-over');
-  if (dragSrc && this !== dragSrc) {
-    const container = this.parentNode;
-    const cards = Array.from(container.querySelectorAll('.layout-card'));
-    const srcIdx = cards.indexOf(dragSrc);
-    const tgtIdx = cards.indexOf(this);
-    if (srcIdx < tgtIdx) container.insertBefore(dragSrc, this.nextSibling);
-    else container.insertBefore(dragSrc, this);
+  e.stopPropagation();
+  this.classList.remove('layout-drag-over');
+  if (dragSrcEl && this !== dragSrcEl) {
+    const parent = this.parentNode;
+    const srcIdx = Array.from(parent.children).indexOf(dragSrcEl);
+    const tgtIdx = Array.from(parent.children).indexOf(this);
+    if (srcIdx < tgtIdx) parent.insertBefore(dragSrcEl, this.nextSibling);
+    else parent.insertBefore(dragSrcEl, this);
   }
+  return false;
 }
 function onDragEnd() {
-  this.classList.remove('dragging');
-  document.querySelectorAll('.layout-card').forEach(c => c.classList.remove('drag-over'));
+  this.classList.remove('layout-dragging');
+  document.querySelectorAll('.layout-drag-over').forEach(el => el.classList.remove('layout-drag-over'));
 }
 
-function hideCard(wrapper, section) {
-  wrapper.style.setProperty('display','none','important');
+function addLayoutControls(el, section) {
+  if (el.querySelector('.layout-hide-btn')) return; // already has controls
+
+  // Hide button
+  const hideBtn = document.createElement('button');
+  hideBtn.className = 'layout-hide-btn';
+  hideBtn.innerHTML = '✕';
+  hideBtn.title = 'Hide this card';
+  hideBtn.onclick = (e) => {
+    e.stopPropagation();
+    el.style.setProperty('display','none','important');
+  };
+  el.style.position = 'relative';
+  el.appendChild(hideBtn);
+}
+
+function removeLayoutControls(container) {
+  container.querySelectorAll('.layout-hide-btn').forEach(b => b.remove());
+  container.querySelectorAll('[data-layout-draggable]').forEach(el => {
+    el.draggable = false;
+    el.removeAttribute('data-layout-draggable');
+    el.removeEventListener('dragstart', onDragStart);
+    el.removeEventListener('dragover', onDragOver);
+    el.removeEventListener('dragleave', onDragLeave);
+    el.removeEventListener('drop', onDrop);
+    el.removeEventListener('dragend', onDragEnd);
+  });
+}
+
+function enableLayoutEditing(section) {
+  const container = document.getElementById('sec-' + section);
+  if (!container) return;
+  assignLayoutIds(section);
+
+  // Make each chart-card individually draggable
+  container.querySelectorAll('.chart-card').forEach(card => {
+    if (card.getAttribute('data-layout-draggable')) return;
+    card.setAttribute('data-layout-draggable', '1');
+    card.draggable = true;
+    card.style.position = 'relative';
+    card.style.cursor = 'grab';
+    card.addEventListener('dragstart', onDragStart);
+    card.addEventListener('dragover', onDragOver);
+    card.addEventListener('dragleave', onDragLeave);
+    card.addEventListener('drop', onDrop);
+    card.addEventListener('dragend', onDragEnd);
+    addLayoutControls(card, section);
+    // Show hidden cards
+    card.style.removeProperty('display');
+  });
+
+  // Also make chart-row and chart-row-2 elements draggable as a unit
+  container.querySelectorAll('.chart-row, .chart-row-2').forEach(row => {
+    if (row.getAttribute('data-layout-draggable')) return;
+    row.setAttribute('data-layout-draggable', '1');
+    row.draggable = true;
+    row.style.cursor = 'grab';
+    row.addEventListener('dragstart', onDragStart);
+    row.addEventListener('dragover', onDragOver);
+    row.addEventListener('dragleave', onDragLeave);
+    row.addEventListener('drop', onDrop);
+    row.addEventListener('dragend', onDragEnd);
+    addLayoutControls(row, section);
+    row.style.removeProperty('display');
+  });
+
+  container.classList.add('layout-editing-active');
 }
 
 function toggleLayoutEdit() {
@@ -1799,29 +1817,12 @@ function toggleLayoutEdit() {
   document.getElementById('editLayoutBtn').style.display = layoutEditing ? 'none' : 'flex';
 
   if (layoutEditing) {
-    // Snapshot current state for cancel
     layoutSnapshot = JSON.parse(JSON.stringify(layoutData));
-
-    // Wrap rows if not already wrapped
-    wrapCardsInSection(section);
-
-    // Enable dragging on row wrappers
-    const container = document.getElementById('sec-' + section);
-    container.classList.add('layout-editing');
-    container.querySelectorAll('.layout-card').forEach(c => {
-      c.draggable = true;
-      c.style.removeProperty('display'); // show all hidden rows temporarily
-    });
-    // Show hidden individual cards too
-    container.querySelectorAll('.chart-card').forEach(c => {
-      c.style.removeProperty('display');
-    });
+    enableLayoutEditing(section);
   } else {
-    // Re-apply hidden state
-    document.getElementById('sec-' + section).classList.remove('layout-editing');
-    document.getElementById('sec-' + section).querySelectorAll('.layout-card').forEach(c => {
-      c.draggable = false;
-    });
+    const container = document.getElementById('sec-' + section);
+    container?.classList.remove('layout-editing-active');
+    removeLayoutControls(container);
     applyLayoutToSection(section);
   }
 }
@@ -1829,13 +1830,13 @@ function toggleLayoutEdit() {
 async function saveLayout() {
   const section = currentSection;
   const container = document.getElementById('sec-' + section);
-  container.classList.remove('layout-editing');
 
-  // Collect order and hidden cards
-  const cards = Array.from(container.querySelectorAll('.layout-card'));
-  const order = cards.map(c => c.getAttribute('data-card-id'));
-  const hidden = cards.filter(c => c.style.display === 'none' ||
-    getComputedStyle(c).display === 'none').map(c => c.getAttribute('data-card-id'));
+  // Collect current order of all layout items
+  const allItems = Array.from(container.querySelectorAll('[data-layout-id]'));
+  const order = allItems.map(el => el.getAttribute('data-layout-id')).filter(Boolean);
+  const hidden = allItems
+    .filter(el => el.style.display === 'none' || getComputedStyle(el).display === 'none')
+    .map(el => el.getAttribute('data-layout-id')).filter(Boolean);
 
   layoutData[section] = { order, hidden };
 
@@ -1847,7 +1848,8 @@ async function saveLayout() {
     });
   } catch(e) { console.error('Layout save failed:', e); }
 
-  cards.forEach(c => { c.draggable = false; });
+  container.classList.remove('layout-editing-active');
+  removeLayoutControls(container);
   applyLayoutToSection(section);
   layoutEditing = false;
   document.getElementById('layoutEditBar').classList.remove('show');
@@ -1865,37 +1867,33 @@ async function resetLayout() {
     });
   } catch(e) {}
 
-  // Unwrap all layout-cards and re-render section
   const container = document.getElementById('sec-' + section);
-  container.classList.remove('layout-editing');
-  container.querySelectorAll('.layout-card').forEach(w => {
-    const child = w.querySelector(':not(.card-drag-handle):not(.card-hide-btn)');
-    if (child) w.replaceWith(child);
-  });
+  container.classList.remove('layout-editing-active');
+  removeLayoutControls(container);
+
+  // Show all hidden items
+  container.querySelectorAll('[data-layout-id]').forEach(el => el.style.removeProperty('display'));
+
   layoutEditing = false;
   document.getElementById('layoutEditBar').classList.remove('show');
   document.getElementById('editLayoutBtn').style.display = 'flex';
-
-  // Re-render the section
-  renderSection(currentSection);
 }
 
 function cancelLayout() {
   const section = currentSection;
   layoutData = JSON.parse(JSON.stringify(layoutSnapshot));
   const container = document.getElementById('sec-' + section);
-  container.classList.remove('layout-editing');
-  container.querySelectorAll('.layout-card').forEach(c => { c.draggable = false; });
+  container.classList.remove('layout-editing-active');
+  removeLayoutControls(container);
   applyLayoutToSection(section);
   layoutEditing = false;
   document.getElementById('layoutEditBar').classList.remove('show');
   document.getElementById('editLayoutBtn').style.display = 'flex';
 }
 
-// Load layout on startup
 loadLayout();
 
-// Update showSection to handle documents + mobile nav
+// // Update showSection to handle documents + mobile nav
 // Update showSection to handle documents + mobile nav
 const _showSectionBase = showSection;
 showSection = function(name, btn) {
