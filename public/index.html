@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Momentum Dashboard Generator</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <style>
   :root {
     --bg: #0b0c0e; --bg2: #111316; --bg3: #181a1f; --bg4: #1e2128;
@@ -17,12 +18,10 @@
   body { font-family: var(--font); background: var(--bg); color: var(--text); min-height: 100vh; display: flex; justify-content: center; padding: 2rem; }
   .container { width: 100%; max-width: 900px; }
   
-  /* Header */
   .header { text-align: center; margin-bottom: 2rem; }
   .header h1 { font-size: 24px; font-weight: 700; letter-spacing: -0.5px; margin-bottom: 8px; }
   .header p { color: var(--muted); font-size: 14px; }
 
-  /* Form Sections */
   .section { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.5rem; margin-bottom: 1.5rem; }
   .section-title { font-size: 14px; font-weight: 600; margin-bottom: 1rem; display: flex; align-items: center; gap: 8px; }
   
@@ -33,7 +32,6 @@
   .field input:focus, .field select:focus { border-color: var(--green); }
   .hint { font-size: 11px; color: var(--muted); margin-top: 4px; }
 
-  /* Feature Toggles */
   .feature-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--border); }
   .feature-row:last-child { border-bottom: none; }
   .feature-info { display: flex; align-items: center; gap: 12px; }
@@ -48,22 +46,23 @@
   .sub-fields.show { display: block; }
   .sub-label { font-size: 12px; font-weight: 600; color: var(--green); margin-bottom: 12px; }
 
-  /* Column Mapper Styles */
-  .col-mapping-row { display: grid; grid-template-columns: 50px 1fr 110px 70px 40px; gap: 10px; align-items: center; background: var(--bg4); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; transition: opacity 0.2s; }
-  .col-mapping-row select, .col-mapping-row input[type="color"] { background: var(--bg3); border: 1px solid var(--border2); border-radius: 6px; color: var(--text); padding: 8px; font-size: 12px; font-family: var(--font); outline: none; }
-  .col-mapping-row input[type="color"] { width: 100%; height: 36px; padding: 2px; cursor: pointer; }
-  .col-mapping-row button { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 16px; padding: 4px; border-radius: 4px; }
-  .col-mapping-row button:hover { background: var(--bg3); color: var(--text); }
-  .col-letter { font-family: var(--mono); font-size: 12px; font-weight: 600; color: var(--muted); text-align: center; }
+  /* Custom Column Mapper Styles */
+  .mapper-row { display: grid; grid-template-columns: 60px 1.5fr 1.2fr 100px 60px 40px; gap: 10px; align-items: center; background: var(--bg4); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; }
+  .mapper-row select, .mapper-row input[type="text"] { background: var(--bg3); border: 1px solid var(--border2); border-radius: 6px; color: var(--text); padding: 8px; font-size: 12px; font-family: var(--font); outline: none; width: 100%; }
+  .mapper-row input[type="color"] { width: 100%; height: 36px; padding: 2px; cursor: pointer; border-radius: 6px; border: 1px solid var(--border2); background: var(--bg3); }
+  .mapper-row button { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 16px; padding: 4px; border-radius: 4px; }
+  .mapper-row button:hover { background: var(--bg3); color: #f87171; }
+  .col-letter-select { font-family: var(--mono); font-weight: 600; text-align: center; }
 
-  /* Generate Button */
+  .add-col-btn { width: 100%; background: var(--bg4); border: 1px dashed var(--border2); color: var(--muted2); padding: 10px; border-radius: var(--radius-sm); cursor: pointer; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.15s; margin-top: 8px; }
+  .add-col-btn:hover { background: var(--bg3); color: var(--text); border-color: var(--green); }
+
   .gen-btn { width: 100%; background: var(--green); color: #fff; border: none; border-radius: var(--radius-sm); padding: 14px; font-size: 14px; font-weight: 600; cursor: pointer; transition: opacity 0.15s; display: flex; align-items: center; justify-content: center; gap: 8px; }
   .gen-btn:hover { opacity: 0.9; }
   .gen-btn:disabled { opacity: 0.5; cursor: not-allowed; }
   
   .err-bar { background: rgba(248,113,113,0.1); border: 1px solid rgba(248,113,113,0.3); color: #f87171; padding: 12px; border-radius: var(--radius-sm); margin-bottom: 16px; font-size: 13px; display: none; }
 
-  /* Download Modal */
   .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 999; align-items: center; justify-content: center; }
   .modal-overlay.show { display: flex; }
   .modal { background: var(--bg2); border: 1px solid var(--border2); border-radius: var(--radius); padding: 2rem; width: 90%; max-width: 500px; text-align: center; }
@@ -71,7 +70,7 @@
   .file-list { text-align: left; background: var(--bg3); border-radius: var(--radius-sm); padding: 1rem; margin-bottom: 1.5rem; max-height: 300px; overflow-y: auto; }
   .file-item { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
   .file-item:last-child { border-bottom: none; }
-  .dl-btn { background: var(--bg4); border: 1px solid var(--border2); color: var(--text); padding: 10px 20px; border-radius: var(--radius-sm); cursor: pointer; font-size: 13px; margin: 0 4px; }
+  .dl-btn { background: var(--bg4); border: 1px solid var(--border2); color: var(--text); padding: 12px 24px; border-radius: var(--radius-sm); cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.15s; }
   .dl-btn:hover { background: var(--border); }
   .dl-btn.primary { background: var(--green); border-color: var(--green); color: #fff; }
 </style>
@@ -88,7 +87,7 @@
 
   <!-- Client Info -->
   <div class="section">
-    <div class="section-title">🏢 Client Information</div>
+    <div class="section-title"> Client Information</div>
     <div class="field-row">
       <div class="field"><label>Client Name *</label><input type="text" id="g-clientName" placeholder="e.g. Penn Pain Center"></div>
       <div class="field"><label>Client Website</label><input type="text" id="g-clientWebsite" placeholder="https://..."></div>
@@ -128,34 +127,28 @@
     </div>
 
     <div class="feature-row">
-      <div class="feature-info"><span style="font-size:18px">📋</span><div><div class="feature-name">Google Sheets</div><div class="feature-desc">Custom data columns — ad spend, revenue, leads or any metric</div></div></div>
+      <div class="feature-info"><span style="font-size:18px"></span><div><div class="feature-name">Google Sheets</div><div class="feature-desc">Custom data columns — ad spend, revenue, leads or any metric</div></div></div>
       <button class="toggle" id="tog-sheets" onclick="toggleSrc('sheets')"></button>
     </div>
     <div class="sub-fields" id="sub-sheets">
-      <div class="sub-label"> Google Sheets Configuration</div>
+      <div class="sub-label">📋 Google Sheets Configuration</div>
       <div class="field-row" style="margin-bottom:14px">
         <div class="field"><label>Sheet ID *</label><input type="text" id="g-sheetId" placeholder="1cXnqHBu9OJ..." style="font-family:var(--mono)"><div class="hint">Long ID from the sheet URL</div></div>
         <div class="field"><label>Tab Name *</label><input type="text" id="g-sheetTab" placeholder="dashboard_data"><div class="hint">Exact name of the data tab</div></div>
       </div>
 
-      <!-- Template Selector -->
-      <div style="background:var(--bg4);border:1px solid var(--border2);border-radius:var(--radius-sm);padding:14px;margin-bottom:16px">
-        <div style="font-size:11px;font-weight:600;font-family:var(--mono);color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px">📊 Quick Start Template</div>
-        <select id="sheetTemplate" onchange="applySheetTemplate()" style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;color:var(--text);padding:10px 12px;font-size:13px;font-family:var(--font)">
-          <option value="">— Select a template or configure manually —</option>
-          <option value="np_appointments">🏥 NP Appointments + Ad Spend (Cols D-G)</option>
-          <option value="ad_spend_only">💰 Ad Spend Only</option>
-          <option value="revenue_tracking">💵 Revenue + Leads Tracking</option>
-          <option value="custom_kpis"> Custom KPI Dashboard</option>
-          <option value="blank">⚪ Start from scratch</option>
-        </select>
-        <div class="hint" style="margin-top:8px">Choose a template to auto-configure columns, then fine-tune below</div>
+      <div style="font-size:11px;font-weight:600;font-family:var(--mono);color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:10px">
+        Column Mapping (A-C are reserved for Date/Week Start/Week End)
       </div>
-
-      <!-- Visual Column Mapper -->
-      <div style="font-size:11px;font-weight:600;font-family:var(--mono);color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:10px">Column Mapping (A-J)</div>
-      <div id="columnMapper" style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px"></div>
-      <div class="hint"><strong>Tip:</strong> Columns A-C are reserved for Date, Week Start, and Week End. Map columns D-J to your metrics.</div>
+      
+      <div id="columnMapper" style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px">
+        <!-- Dynamic rows go here -->
+      </div>
+      <button class="add-col-btn" onclick="addMapperRow()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Add Data Column
+      </button>
+      <div class="hint" style="margin-top:12px"><strong>Tip:</strong> Enter the exact header name from your Google Sheet (e.g., "MTD: NP Appts Total") and select how it should display on the dashboard.</div>
     </div>
   </div>
 
@@ -164,7 +157,7 @@
     <div class="section-title">✨ Features</div>
     
     <div class="feature-row">
-      <div class="feature-info"><span style="font-size:18px">💰</span><div><div class="feature-name">Ad Spend Tracking</div><div class="feature-desc">Show ad spend KPI and chart (requires 'Ad Spend' column mapped above)</div></div></div>
+      <div class="feature-info"><span style="font-size:18px">💰</span><div><div class="feature-name">Ad Spend Tracking</div><div class="feature-desc">Show ad spend KPI and chart (requires a column mapped as 'Ad Spend' above)</div></div></div>
       <button class="toggle" id="tog-adspend" onclick="toggleFeat('adspend')"></button>
     </div>
 
@@ -192,9 +185,29 @@
     </div>
   </div>
 
+  <!-- Backend & Auth Config (Appears if Login or Docs enabled) -->
+  <div class="section" id="backendConfigSection" style="display:none">
+    <div class="section-title">⚙️ Backend & Auth Configuration</div>
+    <div class="hint" style="margin-bottom:16px">Required for Dashboard Login and/or Document Review Portal features.</div>
+    
+    <div class="field-row">
+      <div class="field"><label>Supabase URL *</label><input type="text" id="g-supabaseUrl" placeholder="https://xxxx.supabase.co"></div>
+      <div class="field"><label>Supabase Service Key *</label><input type="text" id="g-supabaseKey" placeholder="eyJhbGciOiJIUzI1NiIs..."></div>
+    </div>
+
+    <div id="docsAuthFields" style="display:none">
+      <div style="font-size:11px;font-weight:600;font-family:var(--mono);color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin:16px 0 10px">Google OAuth (For Document Reviewers)</div>
+      <div class="field-row">
+        <div class="field"><label>Google Client ID *</label><input type="text" id="g-googleClientId" placeholder="123456789.apps.googleusercontent.com"></div>
+        <div class="field"><label>Google Client Secret *</label><input type="text" id="g-googleClientSecret" placeholder="GOCSPX-..."></div>
+      </div>
+      <div class="field"><label>Redirect URI</label><input type="text" id="g-redirectUri" placeholder="https://your-domain.vercel.app/auth/callback"></div>
+    </div>
+  </div>
+
   <!-- Auth & Generate -->
   <div class="section">
-    <div class="section-title"> Generator Access</div>
+    <div class="section-title">🔑 Generator Access</div>
     <div class="field"><label>Admin Password</label><input type="password" id="g-adminPw" placeholder="Enter generator password"></div>
   </div>
 
@@ -208,9 +221,9 @@
 <div class="modal-overlay" id="dlModal">
   <div class="modal">
     <h2>✅ Dashboard Generated!</h2>
-    <p style="color:var(--muted);font-size:13px;margin-bottom:1.5rem">Download your files and follow the README for deployment.</p>
+    <p style="color:var(--muted);font-size:13px;margin-bottom:1.5rem">Your files are ready. Download the complete package.</p>
     <div class="file-list" id="fileList"></div>
-    <div>
+    <div style="display:flex;gap:10px;justify-content:center">
       <button class="dl-btn primary" onclick="downloadAll()">⬇ Download All (.zip)</button>
       <button class="dl-btn" onclick="document.getElementById('dlModal').classList.remove('show')">Close</button>
     </div>
@@ -222,6 +235,8 @@
 const src = { ga4: false, gsc: false, wc: false, sheets: false };
 const feat = { adspend: false, qualified: false, gmb: false, dashLogin: false, docs: false };
 let generatedFiles = null;
+let generatedSlug = '';
+let mapperRowCount = 0;
 
 // ── Toggles ───────────────────────────────────────────────────────────────
 function toggleSrc(key) {
@@ -233,128 +248,86 @@ function toggleFeat(key) {
   feat[key] = !feat[key];
   document.getElementById(`tog-${key}`).classList.toggle('active', feat[key]);
   document.getElementById(`sub-${key}`)?.classList.toggle('show', feat[key]);
+  
+  // Show/hide backend config section
+  const showBackend = feat.dashLogin || feat.docs;
+  document.getElementById('backendConfigSection').style.display = showBackend ? 'block' : 'none';
+  document.getElementById('docsAuthFields').style.display = feat.docs ? 'block' : 'none';
 }
 
-// ── Column Mapper System ──────────────────────────────────────────────────
-const COLUMN_PURPOSES = {
-  'date_label': { label: 'Date Label (A)', icon: '', required: true },
-  'week_start': { label: 'Week Start (B)', icon: '📆', required: true },
-  'week_end': { label: 'Week End (C)', icon: '📆', required: true },
-  'ad_spend': { label: 'Ad Spend', icon: '💰', color: '#f87171' },
-  'np_appointments': { label: 'NP Appointments', icon: '', color: '#00d084' },
-  'future_apps': { label: 'Future Month Apps', icon: '📅', color: '#4d9fff' },
-  'mtd_total': { label: 'MTD Total', icon: '📊', color: '#f59e0b' },
-  'revenue': { label: 'Revenue', icon: '💵', color: '#10b981' },
-  'leads': { label: 'Leads', icon: '🎯', color: '#8b5cf6' },
-  'calls': { label: 'Phone Calls', icon: '📞', color: '#06b6d4' },
-  'forms': { label: 'Form Submissions', icon: '📝', color: '#ec4899' },
-  'custom': { label: 'Custom KPI', icon: '', color: '#6b7280' },
-  'ignore': { label: '— Ignore —', icon: '⊘', color: null }
-};
+// ── Custom Column Mapper System ───────────────────────────────────────────
+const METRIC_TYPES = [
+  { value: 'ad_spend', label: ' Ad Spend', color: '#f87171' },
+  { value: 'np_appointments', label: '🏥 NP Appointments', color: '#00d084' },
+  { value: 'future_apps', label: '📅 Future Month Apps', color: '#4d9fff' },
+  { value: 'mtd_total', label: '📊 MTD Total', color: '#f59e0b' },
+  { value: 'revenue', label: '💵 Revenue', color: '#10b981' },
+  { value: 'leads', label: '🎯 Leads', color: '#8b5cf6' },
+  { value: 'calls', label: '📞 Phone Calls', color: '#06b6d4' },
+  { value: 'forms', label: ' Form Submissions', color: '#ec4899' },
+  { value: 'custom', label: '📈 Custom KPI', color: '#6b7280' }
+];
 
-const TEMPLATES = {
-  np_appointments: {
-    columns: { 'D': { purpose: 'ad_spend', type: 'currency' }, 'E': { purpose: 'np_appointments', type: 'integer' }, 'F': { purpose: 'future_apps', type: 'integer' }, 'G': { purpose: 'mtd_total', type: 'integer' } }
-  },
-  ad_spend_only: {
-    columns: { 'D': { purpose: 'ad_spend', type: 'currency' } }
-  },
-  revenue_tracking: {
-    columns: { 'D': { purpose: 'revenue', type: 'currency' }, 'E': { purpose: 'leads', type: 'integer' }, 'F': { purpose: 'ad_spend', type: 'currency' } }
-  },
-  custom_kpis: {
-    columns: { 'D': { purpose: 'custom', type: 'number' }, 'E': { purpose: 'custom', type: 'number' }, 'F': { purpose: 'custom', type: 'number' } }
-  },
-  blank: { columns: {} }
-};
-
-function initColumnMapper() {
+function addMapperRow() {
+  mapperRowCount++;
+  const id = mapperRowCount;
   const container = document.getElementById('columnMapper');
-  const columns = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'];
   
-  container.innerHTML = columns.map(col => {
-    const isFixed = ['A', 'B', 'C'].includes(col);
-    const defaultPurpose = isFixed ? (col === 'A' ? 'date_label' : col === 'B' ? 'week_start' : 'week_end') : 'ignore';
-    const defaultColor = COLUMN_PURPOSES[defaultPurpose]?.color || '#4d9fff';
-    
-    return `
-      <div class="col-mapping-row" id="col-row-${col}" style="${isFixed ? 'opacity:0.6' : ''}">
-        <div class="col-letter">${col}</div>
-        <select id="col-purpose-${col}" onchange="updateColumnVisibility('${col}')" ${isFixed ? 'disabled' : ''}>
-          ${Object.entries(COLUMN_PURPOSES).map(([key, p]) => `<option value="${key}" ${key === defaultPurpose ? 'selected' : ''}>${p.icon} ${p.label}</option>`).join('')}
-        </select>
-        <select id="col-type-${col}" ${isFixed ? 'disabled' : ''}>
-          <option value="currency">Currency ($)</option>
-          <option value="number">Number</option>
-          <option value="integer">Integer</option>
-        </select>
-        <input type="color" id="col-color-${col}" value="${defaultColor}" ${isFixed ? 'disabled' : ''}>
-        ${!isFixed ? `<button onclick="resetColumn('${col}')" title="Reset">↺</button>` : '<div></div>'}
-      </div>
-    `;
-  }).join('');
-  
-  // Initialize visibility states
-  columns.forEach(col => updateColumnVisibility(col));
+  const colLetters = ['D','E','F','G','H','I','J','K','L','M'];
+  const defaultCol = colLetters[(id - 1) % colLetters.length];
+  const defaultMetric = METRIC_TYPES[(id - 1) % METRIC_TYPES.length];
+
+  const row = document.createElement('div');
+  row.className = 'mapper-row';
+  row.id = `mapper-row-${id}`;
+  row.innerHTML = `
+    <select class="col-letter-select" id="col-letter-${id}">
+      ${colLetters.map(l => `<option value="${l}" ${l === defaultCol ? 'selected' : ''}>${l}</option>`).join('')}
+    </select>
+    <input type="text" id="col-header-${id}" placeholder="Exact Sheet Header (e.g. MTD: NP Appts Total)">
+    <select id="col-metric-${id}" onchange="updateRowColor(${id})">
+      ${METRIC_TYPES.map(m => `<option value="${m.value}" data-color="${m.color}" ${m.value === defaultMetric.value ? 'selected' : ''}>${m.label}</option>`).join('')}
+    </select>
+    <select id="col-type-${id}">
+      <option value="currency">Currency ($)</option>
+      <option value="number">Number</option>
+      <option value="integer">Integer</option>
+    </select>
+    <input type="color" id="col-color-${id}" value="${defaultMetric.color}">
+    <button onclick="document.getElementById('mapper-row-${id}').remove()" title="Remove">✕</button>
+  `;
+  container.appendChild(row);
 }
 
-function applySheetTemplate() {
-  const templateKey = document.getElementById('sheetTemplate').value;
-  if (!templateKey || !TEMPLATES[templateKey]) return;
-  
-  const templateCols = TEMPLATES[templateKey].columns;
-  ['D','E','F','G','H','I','J'].forEach(col => {
-    const config = templateCols[col] || { purpose: 'ignore', type: 'number' };
-    document.getElementById(`col-purpose-${col}`).value = config.purpose;
-    document.getElementById(`col-type-${col}`).value = config.type;
-    if (COLUMN_PURPOSES[config.purpose]?.color) {
-      document.getElementById(`col-color-${col}`).value = COLUMN_PURPOSES[config.purpose].color;
-    }
-    updateColumnVisibility(col);
-  });
-}
-
-function updateColumnVisibility(col) {
-  const purpose = document.getElementById(`col-purpose-${col}`).value;
-  const colorEl = document.getElementById(`col-color-${col}`);
-  const typeEl = document.getElementById(`col-type-${col}`);
-  const rowEl = document.getElementById(`col-row-${col}`);
-  const isRequired = COLUMN_PURPOSES[purpose]?.required;
-  const isIgnored = purpose === 'ignore';
-  
-  const disabled = isRequired || isIgnored;
-  colorEl.disabled = disabled;
-  typeEl.disabled = disabled;
-  colorEl.style.opacity = disabled ? '0.3' : '1';
-  typeEl.style.opacity = disabled ? '0.3' : '1';
-  rowEl.style.opacity = isIgnored ? '0.5' : '1';
-  
-  if (!disabled && COLUMN_PURPOSES[purpose]?.color) {
-    colorEl.value = COLUMN_PURPOSES[purpose].color;
-  }
-}
-
-function resetColumn(col) {
-  document.getElementById(`col-purpose-${col}`).value = 'ignore';
-  document.getElementById(`col-type-${col}`).value = 'number';
-  updateColumnVisibility(col);
+function updateRowColor(id) {
+  const select = document.getElementById(`col-metric-${id}`);
+  const color = select.options[select.selectedIndex].getAttribute('data-color');
+  document.getElementById(`col-color-${id}`).value = color;
 }
 
 function getSheetColumnsFromMapper() {
   const columns = [];
-  ['D','E','F','G','H','I','J'].forEach(col => {
-    const purpose = document.getElementById(`col-purpose-${col}`).value;
-    if (purpose !== 'ignore' && !COLUMN_PURPOSES[purpose].required) {
-      const pConfig = COLUMN_PURPOSES[purpose];
+  for (let i = 1; i <= mapperRowCount; i++) {
+    const row = document.getElementById(`mapper-row-${i}`);
+    if (!row) continue;
+    
+    const letter = document.getElementById(`col-letter-${i}`).value;
+    const header = document.getElementById(`col-header-${i}`).value.trim();
+    const metric = document.getElementById(`col-metric-${i}`).value;
+    const type = document.getElementById(`col-type-${i}`).value;
+    const color = document.getElementById(`col-color-${i}`).value;
+    
+    if (header) {
       columns.push({
-        key: purpose,
-        label: pConfig.label.replace(/^[^\w\s]+[\s]*/, ''), // strip icon
-        type: document.getElementById(`col-type-${col}`).value,
-        color: document.getElementById(`col-color-${col}`).value,
-        column_letter: col
+        column_letter: letter,
+        sheet_header: header, // The exact name from the user's Google Sheet
+        key: metric,          // The internal dashboard purpose
+        label: header,        // Display label on dashboard
+        type: type,
+        color: color
       });
     }
-  });
+  }
   return columns;
 }
 
@@ -365,9 +338,15 @@ async function generateDashboard() {
   if(src.ga4 && !document.getElementById('g-ga4Id').value.trim()) return showErr('GA4 Property ID is required');
   if(src.gsc && !document.getElementById('g-gscUrl').value.trim()) return showErr('GSC Site URL is required');
   if(src.wc && !document.getElementById('g-wcId').value.trim()) return showErr('WhatConverts Profile ID is required');
+  
   if(src.sheets) {
     if(!document.getElementById('g-sheetId').value.trim()) return showErr('Sheet ID is required');
-    if(getSheetColumnsFromMapper().length === 0) return showErr('Map at least one data column (D-J) for Google Sheets');
+    const cols = getSheetColumnsFromMapper();
+    if(cols.length === 0) return showErr('Add at least one data column mapping for Google Sheets');
+  }
+
+  if((feat.dashLogin || feat.docs) && !document.getElementById('g-supabaseUrl').value.trim()) {
+    return showErr('Supabase URL is required for Login/Document features');
   }
 
   const btn = document.getElementById('genBtn');
@@ -387,6 +366,11 @@ async function generateDashboard() {
     sheetTab: document.getElementById('g-sheetTab').value.trim() || 'dashboard_data',
     sheetColumns,
     qualifiedLabel: document.getElementById('g-qualifiedLabel').value.trim() || 'Qualified Leads',
+    supabaseUrl: document.getElementById('g-supabaseUrl').value.trim(),
+    supabaseKey: document.getElementById('g-supabaseKey').value.trim(),
+    googleClientId: document.getElementById('g-googleClientId')?.value.trim() || '',
+    googleClientSecret: document.getElementById('g-googleClientSecret')?.value.trim() || '',
+    redirectUri: document.getElementById('g-redirectUri')?.value.trim() || '',
     useGA4: src.ga4, useGSC: src.gsc, useWC: src.wc, useSheets: src.sheets,
     useDocs: feat.docs, useQualified: feat.qualified, useAdSpend: feat.adspend,
     useGMB: feat.gmb, useDashboardLogin: feat.dashLogin
@@ -401,6 +385,7 @@ async function generateDashboard() {
     if (!res.ok) throw new Error(data.error || 'Generation failed');
     
     generatedFiles = data.files;
+    generatedSlug = data.slug;
     showDownloadModal(data.files);
   } catch(e) { showErr(e.message); }
   
@@ -416,17 +401,35 @@ function showDownloadModal(files) {
   ).join('');
   document.getElementById('dlModal').classList.add('show');
 }
-function downloadAll() {
+
+async function downloadAll() {
   if (!generatedFiles) return;
-  // Simple individual downloads for now (can be upgraded to JSZip later)
-  Object.entries(generatedFiles).filter(([k,v]) => v).forEach(([name, content]) => {
-    const blob = new Blob([content], { type: 'text/plain' });
-    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click();
+  const zip = new JSZip();
+  const folder = zip.folder(`${generatedSlug}-dashboard`);
+  
+  Object.entries(generatedFiles).forEach(([name, content]) => {
+    if (content) {
+      folder.file(name, content);
+    }
   });
+
+  const blob = await zip.generateAsync({ type: "blob" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${generatedSlug}-dashboard.zip`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
-// Init
-document.addEventListener('DOMContentLoaded', initColumnMapper);
+// Init with one empty row
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.getElementById('columnMapper')) {
+    addMapperRow();
+  }
+});
 </script>
 </body>
 </html>

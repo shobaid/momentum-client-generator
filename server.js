@@ -1,7 +1,7 @@
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
-const bcrypt = require('bcryptjs'); // Added for generator-side hashing
+const bcrypt = require('bcryptjs');
 
 require('dotenv').config();
 
@@ -42,7 +42,8 @@ app.post('/api/generate', (req, res) => {
       ga4PropertyId, gscSiteUrl, wcProfileId,
       sheetId, sheetTab, sheetColumns,
       qualifiedLabel,
-      supabaseUrl, redirectUri,
+      supabaseUrl, supabaseKey,
+      googleClientId, googleClientSecret, redirectUri,
       useGA4, useGSC, useWC, useSheets, useDocs, useQualified, useAdSpend,
       useGMB, useDashboardLogin, gmbTab, gmbSheetId, dashUsers
     } = config;
@@ -54,7 +55,7 @@ app.post('/api/generate', (req, res) => {
     const qlabel   = qualifiedLabel || 'Qualified Leads';
     const agency   = agencyLabel || 'Momentum Digital';
 
-    // ── index.html swaps ─────────────────────────────────────────────────
+    // ── index.html swaps ──────────────────────────────────────────────────
     indexHtml = indexHtml.replace('<title>Penn Pain· Analytics by Momentum Digital</title>', `<title>${clientName} · Analytics by ${agency}</title>`);
     indexHtml = indexHtml.replace(/--green: #3a8fd4;/, `--green: ${brandColor};`);
     indexHtml = indexHtml.replace(/--green2: rgba\(58,143,212,0\.12\);/, `--green2: rgba(${rgbStr},0.12);`);
@@ -76,7 +77,6 @@ app.post('/api/generate', (req, res) => {
     if (!useGSC) toggleSection('gsc', false);
     if (!useWC) toggleSection('wc', false);
     if (!useSheets) toggleSection('sheets', false);
-    if (!useAdSpend) { /* Ad spend is now just a feature flag, UI handled in features */ }
     if (!useQualified) toggleSection('qualified', false);
     if (!useGMB) toggleSection('gmb', false);
     if (!useDashboardLogin) toggleSection('dashLogin', false);
@@ -106,14 +106,14 @@ app.post('/api/generate', (req, res) => {
     serverJs = serverJs.replace(/%%CLIENT_NAME%%/g, clientName);
     serverJs = serverJs.replace(/%%QUALIFIED_LABEL%%/g, qlabel);
 
-    // Inject SHEET_COLUMNS config (This now includes ad_spend if mapped!)
+    // Inject SHEET_COLUMNS config (Now uses custom mapped columns)
     const finalColsJson = JSON.stringify(sheetColumns || []);
     serverJs = serverJs.replace('%%SHEET_COLUMNS%%', finalColsJson);
 
     // Remove unused endpoints
-    if (!useWC) serverJs = serverJs.replace(/\/\/ ── WhatConverts proxy[\s\S]*?(?=\/\/ ── WhatConverts NP|\/\/ ── Google Sheets|\/\/ ── Google Business|\/\/ ── Dashboard Auth|\/\/ ── Review Auth|const PORT)/, '');
-    if (!useQualified) serverJs = serverJs.replace(/\/\/ ── WhatConverts NP Appointments[\s\S]*?(?=\/\/ ── Google Sheets|\/\/ ── Google Business|\/\/ ─ Dashboard Auth|\/\/ ── Review Auth|const PORT)/, '');
-    if (!useSheets) serverJs = serverJs.replace(/\/\/ ── Google Sheets[\s\S]*?(?=\/\/ ── Google Business|\/\/ ── Dashboard Auth|\/\/ ─ Review Auth|const PORT)/, '');
+    if (!useWC) serverJs = serverJs.replace(/\/\/ ─ WhatConverts proxy[\s\S]*?(?=\/\/ ── WhatConverts NP|\/\/ ── Google Sheets|\/\/ ── Google Business|\/\/ ── Dashboard Auth|\/\/ ── Review Auth|const PORT)/, '');
+    if (!useQualified) serverJs = serverJs.replace(/\/\/ ── WhatConverts NP Appointments[\s\S]*?(?=\/\/ ── Google Sheets|\/\/ ── Google Business|\/\/ ── Dashboard Auth|\/\/ ── Review Auth|const PORT)/, '');
+    if (!useSheets) serverJs = serverJs.replace(/\/\/ ── Google Sheets[\s\S]*?(?=\/\/ ── Google Business|\/\/ ── Dashboard Auth|\/\/ ── Review Auth|const PORT)/, '');
     if (!useGMB) serverJs = serverJs.replace(/\/\/ ── Google Business Profile[\s\S]*?(?=\/\/ ── Dashboard Auth|\/\/ ── Review Auth|const PORT)/, '');
     if (!useDashboardLogin) serverJs = serverJs.replace(/\/\/ ── Dashboard Auth[\s\S]*?(?=\/\/ ── Review Auth|const PORT)/, '');
     if (!useDocs) {
@@ -155,7 +155,7 @@ app.post('/api/generate', (req, res) => {
     if (needsJwt) deps["jsonwebtoken"] = "^9.0.2";
     if (needsCookieParser) deps["cookie-parser"] = "^1.4.6";
     if (needsSupabase) deps["@supabase/supabase-js"] = "^2.38.0";
-    if (needsBcrypt) deps["bcryptjs"] = "^2.4.3"; // FIXED: Moved inside dependencies
+    if (needsBcrypt) deps["bcryptjs"] = "^2.4.3";
 
     const packageJson = JSON.stringify({
       name: `${slug}-dashboard`,
@@ -165,23 +165,26 @@ app.post('/api/generate', (req, res) => {
       dependencies: deps
     }, null, 2);
 
-    // ─ vercel.json ───────────────────────────────────────────────────────
+    // ── vercel.json ───────────────────────────────────────────────────────
     const vercelJson = JSON.stringify({
       version: 2,
       builds: [{ src: "server.js", use: "@vercel/node" }],
       routes: [{ src: "/(.*)", dest: "server.js" }]
     }, null, 2);
 
-    // ── .env.example ──────────────────────────────────────────────────────
+    // ── .env.example ─────────────────────────────────────────────────────
     let envExample = `# ${clientName} Dashboard — Environment Variables\n\n`;
     envExample += `# Google Service Account\nGOOGLE_SERVICE_ACCOUNT_EMAIL=your-service-account@project.iam.gserviceaccount.com\nGOOGLE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\\nYOUR_KEY_HERE\\n-----END PRIVATE KEY-----\\n"\n`;
     if (useWC) envExample += `\n# WhatConverts\nWHATCONVERTS_TOKEN=your_token\nWHATCONVERTS_SECRET=your_secret\n`;
-    if (useDashboardLogin || useDocs) {
-      envExample += `\n# Supabase\nSUPABASE_URL=${supabaseUrl || 'https://xxxx.supabase.co'}\nSUPABASE_SERVICE_KEY=your_service_key\n`;
+    
+    if (needsSupabase) {
+      envExample += `\n# Supabase\nSUPABASE_URL=${supabaseUrl || 'https://xxxx.supabase.co'}\nSUPABASE_SERVICE_KEY=${supabaseKey || 'your_service_key_here'}\n`;
     }
+    
     if (useDocs) {
-      envExample += `\n# Google OAuth (for Document Review)\nGOOGLE_CLIENT_ID=your_client_id\nGOOGLE_CLIENT_SECRET=your_client_secret\nREDIRECT_URI=${redirectUri || `https://${slug}-dashboard.vercel.app/auth/callback`}\n`;
+      envExample += `\n# Google OAuth (for Document Review)\nGOOGLE_CLIENT_ID=${googleClientId || 'your_client_id'}\nGOOGLE_CLIENT_SECRET=${googleClientSecret || 'your_client_secret'}\nREDIRECT_URI=${redirectUri || `https://${slug}-dashboard.vercel.app/auth/callback`}\n`;
     }
+    
     envExample += `\nSESSION_SECRET=${slug}-change-this-to-random-string\n`;
 
     // ── Supabase SQL ──────────────────────────────────────────────────────
@@ -209,8 +212,8 @@ app.post('/api/generate', (req, res) => {
     // ── Sheet structure guide ─────────────────────────────────────────────
     let sheetGuide = '';
     if (useSheets && sheetColumns?.length) {
-      const colLetters = sheetColumns.map((c, i) => `| ${c.column_letter || String.fromCharCode(68 + i)} | ${c.label} | ${c.type} |`).join('\n');
-      sheetGuide = `\n## Google Sheet Structure (${sheetTab})\n\n| Column | Label | Type |\n|--------|-------|------|\n| A | Date (e.g. 8/1-8/6) | text |\n| B | Week Start (YYYY-MM-DD) | date |\n| C | Week End (YYYY-MM-DD) | date |\n${colLetters}\n\nNewest row at top (row 2). Dashboard filters by Week End date.\n`;
+      const colRows = sheetColumns.map(c => `| ${c.column_letter} | ${c.sheet_header} | ${c.label} | ${c.type} |`).join('\n');
+      sheetGuide = `\n## Google Sheet Structure (${sheetTab})\n\n| Col Letter | Sheet Header Name | Dashboard Metric | Data Type |\n|------------|-------------------|------------------|-----------|\n| A | Date (e.g. 8/1-8/6) | Date Label | text |\n| B | Week Start | Week Start | date |\n| C | Week End | Week End | date |\n${colRows}\n\nNewest row at top (row 2). Dashboard filters by Week End date.\n`;
     }
 
     if (useGMB) {
