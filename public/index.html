@@ -3,699 +3,381 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Dashboard Generator · Momentum Digital</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+<title>Momentum Dashboard Generator</title>
 <style>
-:root {
-  --bg: #f7f6f3; --surface: #fff; --border: rgba(0,0,0,0.08); --border2: rgba(0,0,0,0.14);
-  --text: #111110; --muted: #6b6a67; --muted2: #9b9a97;
-  --blue: #1a6bd4; --blue-light: rgba(26,107,212,0.08); --blue-mid: rgba(26,107,212,0.15);
-  --green: #16a34a; --green-light: rgba(22,163,74,0.08);
-  --amber: #d97706; --red: #dc2626;
-  --radius: 12px; --radius-sm: 8px;
-  --font: 'Plus Jakarta Sans', system-ui, sans-serif;
-  --mono: 'Roboto Mono', monospace;
-}
-* { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: var(--font); background: var(--bg); color: var(--text); min-height: 100vh; }
+  :root {
+    --bg: #0b0c0e; --bg2: #111316; --bg3: #181a1f; --bg4: #1e2128;
+    --border: rgba(255,255,255,0.06); --border2: rgba(255,255,255,0.1);
+    --text: #f0ede8; --muted: #6b7280; --muted2: #9ca3af;
+    --green: #3a8fd4; --green2: rgba(58,143,212,0.12);
+    --font: 'Plus Jakarta Sans', sans-serif; --mono: 'Roboto Mono', monospace;
+    --radius: 12px; --radius-sm: 8px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: var(--font); background: var(--bg); color: var(--text); min-height: 100vh; display: flex; justify-content: center; padding: 2rem; }
+  .container { width: 100%; max-width: 900px; }
+  
+  /* Header */
+  .header { text-align: center; margin-bottom: 2rem; }
+  .header h1 { font-size: 24px; font-weight: 700; letter-spacing: -0.5px; margin-bottom: 8px; }
+  .header p { color: var(--muted); font-size: 14px; }
 
-#loginWrap { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 1rem; }
-.login-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 2.5rem; width: 100%; max-width: 380px; text-align: center; }
-.login-logo { font-size: 12px; font-weight: 700; color: var(--blue); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 1.5rem; }
-.login-title { font-size: 22px; font-weight: 700; letter-spacing: -0.3px; margin-bottom: 6px; }
-.login-sub { font-size: 13px; color: var(--muted); margin-bottom: 1.5rem; }
-.pw-input { width: 100%; padding: 10px 14px; background: var(--bg); border: 1px solid var(--border2); border-radius: var(--radius-sm); font-family: var(--mono); font-size: 14px; outline: none; margin-bottom: 12px; transition: border-color 0.15s; }
-.pw-input:focus { border-color: var(--blue); }
-.pw-btn { width: 100%; background: var(--blue); color: white; border: none; border-radius: var(--radius-sm); padding: 11px; font-family: var(--font); font-size: 14px; font-weight: 600; cursor: pointer; }
-.pw-btn:hover { opacity: 0.88; }
-.pw-err { font-size: 12px; color: var(--red); margin-top: 8px; display: none; }
+  /* Form Sections */
+  .section { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.5rem; margin-bottom: 1.5rem; }
+  .section-title { font-size: 14px; font-weight: 600; margin-bottom: 1rem; display: flex; align-items: center; gap: 8px; }
+  
+  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field label { font-size: 11px; font-weight: 600; font-family: var(--mono); color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+  .field input, .field select { background: var(--bg3); border: 1px solid var(--border2); border-radius: var(--radius-sm); padding: 10px 12px; color: var(--text); font-size: 13px; font-family: var(--font); outline: none; transition: border-color 0.15s; }
+  .field input:focus, .field select:focus { border-color: var(--green); }
+  .hint { font-size: 11px; color: var(--muted); margin-top: 4px; }
 
-#appWrap { display: none; }
-.header { background: var(--surface); border-bottom: 1px solid var(--border); height: 54px; display: flex; align-items: center; justify-content: space-between; padding: 0 2rem; position: sticky; top: 0; z-index: 100; }
-.header-left { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 14px; }
-.badge { font-size: 10px; font-weight: 600; font-family: var(--mono); background: var(--blue-light); color: var(--blue); padding: 3px 8px; border-radius: 20px; }
-.header-right { display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--muted); font-family: var(--mono); }
-.so-btn { background: none; border: 1px solid var(--border); border-radius: 6px; padding: 5px 12px; font-size: 12px; font-family: var(--font); color: var(--muted); cursor: pointer; }
-.so-btn:hover { background: var(--bg); color: var(--text); }
+  /* Feature Toggles */
+  .feature-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--border); }
+  .feature-row:last-child { border-bottom: none; }
+  .feature-info { display: flex; align-items: center; gap: 12px; }
+  .feature-name { font-size: 13px; font-weight: 500; }
+  .feature-desc { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .toggle { width: 44px; height: 24px; border-radius: 12px; background: var(--bg4); border: 1px solid var(--border2); position: relative; cursor: pointer; transition: background 0.2s; }
+  .toggle::after { content: ''; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%; background: var(--muted); transition: transform 0.2s, background 0.2s; }
+  .toggle.active { background: var(--green2); border-color: var(--green); }
+  .toggle.active::after { transform: translateX(20px); background: var(--green); }
+  
+  .sub-fields { display: none; padding: 16px; background: var(--bg3); border-radius: var(--radius-sm); margin-top: 8px; border: 1px solid var(--border); }
+  .sub-fields.show { display: block; }
+  .sub-label { font-size: 12px; font-weight: 600; color: var(--green); margin-bottom: 12px; }
 
-.tab-nav { background: var(--surface); border-bottom: 1px solid var(--border); display: flex; padding: 0 2rem; }
-.tab-btn { font-family: var(--font); font-size: 13px; font-weight: 500; padding: 13px 18px; border: none; background: none; cursor: pointer; color: var(--muted); border-bottom: 2px solid transparent; transition: all 0.15s; margin-bottom: -1px; }
-.tab-btn:hover { color: var(--text); }
-.tab-btn.active { color: var(--blue); border-bottom-color: var(--blue); font-weight: 600; }
-.tab-panel { display: none; }
-.tab-panel.active { display: block; }
+  /* Column Mapper Styles */
+  .col-mapping-row { display: grid; grid-template-columns: 50px 1fr 110px 70px 40px; gap: 10px; align-items: center; background: var(--bg4); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; transition: opacity 0.2s; }
+  .col-mapping-row select, .col-mapping-row input[type="color"] { background: var(--bg3); border: 1px solid var(--border2); border-radius: 6px; color: var(--text); padding: 8px; font-size: 12px; font-family: var(--font); outline: none; }
+  .col-mapping-row input[type="color"] { width: 100%; height: 36px; padding: 2px; cursor: pointer; }
+  .col-mapping-row button { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 16px; padding: 4px; border-radius: 4px; }
+  .col-mapping-row button:hover { background: var(--bg3); color: var(--text); }
+  .col-letter { font-family: var(--mono); font-size: 12px; font-weight: 600; color: var(--muted); text-align: center; }
 
-.container { max-width: 860px; margin: 0 auto; padding: 2rem 1.5rem; }
-.page-title { font-size: 24px; font-weight: 700; letter-spacing: -0.4px; margin-bottom: 6px; }
-.page-sub { font-size: 13px; color: var(--muted); margin-bottom: 2rem; line-height: 1.6; }
+  /* Generate Button */
+  .gen-btn { width: 100%; background: var(--green); color: #fff; border: none; border-radius: var(--radius-sm); padding: 14px; font-size: 14px; font-weight: 600; cursor: pointer; transition: opacity 0.15s; display: flex; align-items: center; justify-content: center; gap: 8px; }
+  .gen-btn:hover { opacity: 0.9; }
+  .gen-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  
+  .err-bar { background: rgba(248,113,113,0.1); border: 1px solid rgba(248,113,113,0.3); color: #f87171; padding: 12px; border-radius: var(--radius-sm); margin-bottom: 16px; font-size: 13px; display: none; }
 
-.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 14px; overflow: hidden; }
-.card-hd { padding: 1rem 1.25rem; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--border); }
-.card-icon { width: 34px; height: 34px; border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
-.card-title { font-size: 14px; font-weight: 600; }
-.card-sub { font-size: 12px; color: var(--muted); margin-top: 1px; }
-.card-bd { padding: 1.25rem; }
-
-.field { margin-bottom: 14px; }
-.field:last-child { margin-bottom: 0; }
-.field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.field-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
-label { display: block; font-size: 10.5px; font-weight: 600; font-family: var(--mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); margin-bottom: 5px; }
-input[type="text"], input[type="url"], input[type="password"], select {
-  width: 100%; background: var(--bg); border: 1px solid var(--border2); border-radius: var(--radius-sm);
-  padding: 9px 12px; font-family: var(--font); font-size: 13px; color: var(--text); outline: none;
-  transition: border-color 0.15s, box-shadow 0.15s;
-}
-input:focus, select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-light); }
-input[type="color"] { width: 42px; height: 36px; padding: 3px 4px; border: 1px solid var(--border2); border-radius: var(--radius-sm); cursor: pointer; background: var(--bg); }
-textarea { width: 100%; background: var(--bg); border: 1px solid var(--border2); border-radius: var(--radius-sm); padding: 9px 12px; font-family: var(--mono); font-size: 11.5px; color: var(--text); outline: none; resize: vertical; min-height: 130px; line-height: 1.7; transition: border-color 0.15s; }
-textarea:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-light); }
-.color-row { display: flex; gap: 8px; align-items: center; }
-.color-hex { flex: 1; font-family: var(--mono) !important; }
-.hint { font-size: 11px; color: var(--muted2); margin-top: 4px; font-family: var(--mono); }
-.note { background: #fefce8; border: 1px solid #fde68a; border-radius: var(--radius-sm); padding: 10px 14px; font-size: 12px; color: var(--amber); margin-bottom: 14px; line-height: 1.6; }
-.secret-row { display: flex; align-items: center; gap: 8px; }
-.secret-row input { flex: 1; }
-.reveal-btn { background: var(--bg); border: 1px solid var(--border2); border-radius: var(--radius-sm); padding: 9px 10px; font-size: 11px; font-family: var(--mono); cursor: pointer; white-space: nowrap; color: var(--muted); }
-.reveal-btn:hover { background: var(--border2); color: var(--text); }
-.gen-btn { background: var(--blue-light); border: 1px solid rgba(26,107,212,0.2); border-radius: var(--radius-sm); padding: 9px 10px; font-size: 11px; font-family: var(--mono); cursor: pointer; color: var(--blue); white-space: nowrap; }
-.gen-btn:hover { background: var(--blue-mid); }
-
-.logo-drop { border: 2px dashed var(--border2); border-radius: var(--radius-sm); padding: 1.1rem; text-align: center; cursor: pointer; transition: all 0.15s; background: var(--bg); }
-.logo-drop:hover { border-color: var(--blue); background: var(--blue-light); }
-.logo-drop.has-logo { border-style: solid; border-color: var(--green); background: var(--green-light); }
-.logo-preview-img { max-height: 34px; max-width: 140px; object-fit: contain; display: none; margin: 0 auto 6px; }
-
-.feature-row { display: flex; align-items: center; justify-content: space-between; padding: 11px 14px; background: var(--bg); border-radius: var(--radius-sm); border: 1px solid var(--border); margin-bottom: 8px; }
-.feature-row:last-child { margin-bottom: 0; }
-.feature-info { display: flex; align-items: center; gap: 10px; }
-.feature-name { font-size: 13px; font-weight: 600; }
-.feature-desc { font-size: 11px; color: var(--muted); margin-top: 1px; }
-.toggle { width: 40px; height: 22px; border-radius: 11px; background: var(--border2); border: none; cursor: pointer; position: relative; transition: background 0.2s; flex-shrink: 0; }
-.toggle::after { content: ''; position: absolute; width: 16px; height: 16px; border-radius: 50%; background: white; top: 3px; left: 3px; transition: transform 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
-.toggle.on { background: var(--blue); }
-.toggle.on::after { transform: translateX(18px); }
-.sub-fields { display: none; border-top: 1px solid var(--border); margin-top: 12px; padding-top: 12px; }
-.sub-fields.open { display: block; }
-.sub-label { font-size: 10.5px; font-weight: 600; font-family: var(--mono); color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 10px; }
-
-/* Sheet columns builder */
-.col-row { display: grid; grid-template-columns: 1fr 1fr auto auto; gap: 8px; align-items: end; margin-bottom: 8px; padding: 10px 12px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); }
-.col-row:last-child { margin-bottom: 0; }
-.col-num { font-size: 10px; font-family: var(--mono); color: var(--muted); text-align: center; padding-top: 20px; }
-.remove-col { background: none; border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; font-size: 13px; cursor: pointer; color: var(--muted); line-height: 1; }
-.remove-col:hover { background: #fef2f2; border-color: #fecaca; color: var(--red); }
-.add-col-btn { display: flex; align-items: center; gap: 6px; background: none; border: 1px dashed var(--border2); border-radius: var(--radius-sm); padding: 9px 14px; font-family: var(--font); font-size: 13px; color: var(--muted); cursor: pointer; width: 100%; margin-top: 10px; transition: all 0.15s; }
-.add-col-btn:hover { border-color: var(--blue); color: var(--blue); background: var(--blue-light); }
-.col-type-select { background: var(--bg); border: 1px solid var(--border2); border-radius: var(--radius-sm); padding: 9px 10px; font-family: var(--font); font-size: 13px; color: var(--text); outline: none; width: 100%; }
-
-.cta-box { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 2rem; text-align: center; margin-top: 1.5rem; margin-bottom: 2rem; }
-.cta-title { font-size: 18px; font-weight: 700; letter-spacing: -0.3px; margin-bottom: 6px; }
-.cta-sub { font-size: 13px; color: var(--muted); margin-bottom: 1.5rem; }
-.cta-btn { display: inline-flex; align-items: center; gap: 8px; background: var(--blue); color: white; border: none; border-radius: 10px; padding: 12px 28px; font-family: var(--font); font-size: 15px; font-weight: 600; cursor: pointer; transition: all 0.15s; }
-.cta-btn:hover { background: #1558b0; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(26,107,212,0.3); }
-.cta-btn:disabled { background: var(--muted2); transform: none; box-shadow: none; cursor: not-allowed; }
-.cta-btn.green { background: var(--green); }
-.cta-btn.green:hover { background: #15803d; }
-.alt-btn { display: inline-flex; align-items: center; gap: 6px; background: none; color: var(--muted); border: 1px solid var(--border2); border-radius: 10px; padding: 12px 20px; font-family: var(--font); font-size: 13px; font-weight: 500; cursor: pointer; margin-left: 10px; transition: all 0.15s; }
-.alt-btn:hover { background: var(--bg); color: var(--text); }
-
-.success-block { display: none; }
-.success-icon { font-size: 40px; margin-bottom: 10px; }
-.success-title { font-size: 19px; font-weight: 700; letter-spacing: -0.3px; margin-bottom: 6px; }
-.success-sub { font-size: 13px; color: var(--muted); margin-bottom: 1.5rem; line-height: 1.6; }
-.file-list { text-align: left; background: var(--bg); border-radius: var(--radius-sm); padding: 1rem 1.25rem; margin-top: 1.25rem; }
-.file-list-title { font-size: 10.5px; font-weight: 600; font-family: var(--mono); color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 8px; }
-.file-item { font-size: 12px; font-family: var(--mono); color: var(--muted); padding: 3px 0; }
-.file-item::before { content: '✓  '; color: var(--green); }
-
-.key-note { background: #fefce8; border: 1px solid #fde68a; border-radius: var(--radius-sm); padding: 10px 14px; font-size: 12px; color: var(--amber); margin-bottom: 14px; line-height: 1.5; }
-.env-preview { background: #1e293b; border-radius: var(--radius-sm); padding: 1rem 1.25rem; margin-top: 1.25rem; }
-.env-preview-title { font-size: 10px; font-family: var(--mono); color: #64748b; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; }
-.env-preview pre { font-family: var(--mono); font-size: 11px; color: #86efac; line-height: 1.8; white-space: pre-wrap; word-break: break-all; }
-
-.err-bar { background: #fef2f2; border: 1px solid #fecaca; border-radius: var(--radius-sm); padding: 10px 14px; font-size: 13px; color: var(--red); margin-bottom: 1rem; display: none; }
-@keyframes spin { to { transform: rotate(360deg); } }
-.spin { animation: spin 0.7s linear infinite; display: inline-block; }
-
-@media (max-width: 600px) {
-  .field-row, .field-row-3 { grid-template-columns: 1fr; }
-  .container { padding: 1rem; }
-  .col-row { grid-template-columns: 1fr 1fr; }
-}
+  /* Download Modal */
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 999; align-items: center; justify-content: center; }
+  .modal-overlay.show { display: flex; }
+  .modal { background: var(--bg2); border: 1px solid var(--border2); border-radius: var(--radius); padding: 2rem; width: 90%; max-width: 500px; text-align: center; }
+  .modal h2 { margin-bottom: 1rem; font-size: 18px; }
+  .file-list { text-align: left; background: var(--bg3); border-radius: var(--radius-sm); padding: 1rem; margin-bottom: 1.5rem; max-height: 300px; overflow-y: auto; }
+  .file-item { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+  .file-item:last-child { border-bottom: none; }
+  .dl-btn { background: var(--bg4); border: 1px solid var(--border2); color: var(--text); padding: 10px 20px; border-radius: var(--radius-sm); cursor: pointer; font-size: 13px; margin: 0 4px; }
+  .dl-btn:hover { background: var(--border); }
+  .dl-btn.primary { background: var(--green); border-color: var(--green); color: #fff; }
 </style>
 </head>
 <body>
 
-<!-- LOGIN -->
-<div id="loginWrap">
-  <div class="login-card">
-    <div class="login-logo">Momentum Digital</div>
-    <div class="login-title">Dashboard Generator</div>
-    <div class="login-sub">Internal tool — enter your password to continue</div>
-    <input type="password" class="pw-input" id="pwInput" placeholder="Password" onkeydown="if(event.key==='Enter')login()">
-    <button class="pw-btn" onclick="login()">Continue →</button>
-    <div class="pw-err" id="pwErr">Wrong password — try again</div>
+<div class="container">
+  <div class="header">
+    <h1>Momentum Dashboard Generator</h1>
+    <p>Configure and generate client analytics dashboards</p>
+  </div>
+
+  <div class="err-bar" id="genErrBar"></div>
+
+  <!-- Client Info -->
+  <div class="section">
+    <div class="section-title">🏢 Client Information</div>
+    <div class="field-row">
+      <div class="field"><label>Client Name *</label><input type="text" id="g-clientName" placeholder="e.g. Penn Pain Center"></div>
+      <div class="field"><label>Client Website</label><input type="text" id="g-clientWebsite" placeholder="https://..."></div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Brand Color</label><input type="color" id="g-brandColor" value="#3a8fd4" style="width:100%;height:42px"></div>
+      <div class="field"><label>Agency Label</label><input type="text" id="g-agencyLabel" value="Momentum Digital"></div>
+    </div>
+  </div>
+
+  <!-- Data Sources -->
+  <div class="section">
+    <div class="section-title">🔌 Data Sources</div>
+    
+    <div class="feature-row">
+      <div class="feature-info"><span style="font-size:18px">📊</span><div><div class="feature-name">Google Analytics 4</div><div class="feature-desc">Traffic, sessions, and user metrics</div></div></div>
+      <button class="toggle" id="tog-ga4" onclick="toggleSrc('ga4')"></button>
+    </div>
+    <div class="sub-fields" id="sub-ga4">
+      <div class="field"><label>GA4 Property ID *</label><input type="text" id="g-ga4Id" placeholder="properties/123456789"></div>
+    </div>
+
+    <div class="feature-row">
+      <div class="feature-info"><span style="font-size:18px"></span><div><div class="feature-name">Google Search Console</div><div class="feature-desc">Organic search performance and queries</div></div></div>
+      <button class="toggle" id="tog-gsc" onclick="toggleSrc('gsc')"></button>
+    </div>
+    <div class="sub-fields" id="sub-gsc">
+      <div class="field"><label>GSC Site URL *</label><input type="text" id="g-gscUrl" placeholder="sc-domain:example.com"></div>
+    </div>
+
+    <div class="feature-row">
+      <div class="feature-info"><span style="font-size:18px">📞</span><div><div class="feature-name">WhatConverts</div><div class="feature-desc">Call tracking and lead sources</div></div></div>
+      <button class="toggle" id="tog-wc" onclick="toggleSrc('wc')"></button>
+    </div>
+    <div class="sub-fields" id="sub-wc">
+      <div class="field"><label>WC Profile ID *</label><input type="text" id="g-wcId" placeholder="12345"></div>
+    </div>
+
+    <div class="feature-row">
+      <div class="feature-info"><span style="font-size:18px">📋</span><div><div class="feature-name">Google Sheets</div><div class="feature-desc">Custom data columns — ad spend, revenue, leads or any metric</div></div></div>
+      <button class="toggle" id="tog-sheets" onclick="toggleSrc('sheets')"></button>
+    </div>
+    <div class="sub-fields" id="sub-sheets">
+      <div class="sub-label"> Google Sheets Configuration</div>
+      <div class="field-row" style="margin-bottom:14px">
+        <div class="field"><label>Sheet ID *</label><input type="text" id="g-sheetId" placeholder="1cXnqHBu9OJ..." style="font-family:var(--mono)"><div class="hint">Long ID from the sheet URL</div></div>
+        <div class="field"><label>Tab Name *</label><input type="text" id="g-sheetTab" placeholder="dashboard_data"><div class="hint">Exact name of the data tab</div></div>
+      </div>
+
+      <!-- Template Selector -->
+      <div style="background:var(--bg4);border:1px solid var(--border2);border-radius:var(--radius-sm);padding:14px;margin-bottom:16px">
+        <div style="font-size:11px;font-weight:600;font-family:var(--mono);color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px">📊 Quick Start Template</div>
+        <select id="sheetTemplate" onchange="applySheetTemplate()" style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;color:var(--text);padding:10px 12px;font-size:13px;font-family:var(--font)">
+          <option value="">— Select a template or configure manually —</option>
+          <option value="np_appointments">🏥 NP Appointments + Ad Spend (Cols D-G)</option>
+          <option value="ad_spend_only">💰 Ad Spend Only</option>
+          <option value="revenue_tracking">💵 Revenue + Leads Tracking</option>
+          <option value="custom_kpis"> Custom KPI Dashboard</option>
+          <option value="blank">⚪ Start from scratch</option>
+        </select>
+        <div class="hint" style="margin-top:8px">Choose a template to auto-configure columns, then fine-tune below</div>
+      </div>
+
+      <!-- Visual Column Mapper -->
+      <div style="font-size:11px;font-weight:600;font-family:var(--mono);color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:10px">Column Mapping (A-J)</div>
+      <div id="columnMapper" style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px"></div>
+      <div class="hint"><strong>Tip:</strong> Columns A-C are reserved for Date, Week Start, and Week End. Map columns D-J to your metrics.</div>
+    </div>
+  </div>
+
+  <!-- Features -->
+  <div class="section">
+    <div class="section-title">✨ Features</div>
+    
+    <div class="feature-row">
+      <div class="feature-info"><span style="font-size:18px">💰</span><div><div class="feature-name">Ad Spend Tracking</div><div class="feature-desc">Show ad spend KPI and chart (requires 'Ad Spend' column mapped above)</div></div></div>
+      <button class="toggle" id="tog-adspend" onclick="toggleFeat('adspend')"></button>
+    </div>
+
+    <div class="feature-row">
+      <div class="feature-info"><span style="font-size:18px">🏥</span><div><div class="feature-name">NP Appointments</div><div class="feature-desc">Track new patient appointments from WhatConverts</div></div></div>
+      <button class="toggle" id="tog-qualified" onclick="toggleFeat('qualified')"></button>
+    </div>
+    <div class="sub-fields" id="sub-qualified">
+      <div class="field"><label>Qualified Lead Label</label><input type="text" id="g-qualifiedLabel" value="NP Appointments"></div>
+    </div>
+
+    <div class="feature-row">
+      <div class="feature-info"><span style="font-size:18px">📍</span><div><div class="feature-name">Google Business Profile</div><div class="feature-desc">Local search insights and interactions</div></div></div>
+      <button class="toggle" id="tog-gmb" onclick="toggleFeat('gmb')"></button>
+    </div>
+
+    <div class="feature-row">
+      <div class="feature-info"><span style="font-size:18px">🔒</span><div><div class="feature-name">Dashboard Login</div><div class="feature-desc">Require email/password to view dashboard</div></div></div>
+      <button class="toggle" id="tog-dashLogin" onclick="toggleFeat('dashLogin')"></button>
+    </div>
+
+    <div class="feature-row">
+      <div class="feature-info"><span style="font-size:18px">📄</span><div><div class="feature-name">Document Review Portal</div><div class="feature-desc">Client document approval workflow</div></div></div>
+      <button class="toggle" id="tog-docs" onclick="toggleFeat('docs')"></button>
+    </div>
+  </div>
+
+  <!-- Auth & Generate -->
+  <div class="section">
+    <div class="section-title"> Generator Access</div>
+    <div class="field"><label>Admin Password</label><input type="password" id="g-adminPw" placeholder="Enter generator password"></div>
+  </div>
+
+  <button class="gen-btn" id="genBtn" onclick="generateDashboard()">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+    Generate Dashboard
+  </button>
+</div>
+
+<!-- Download Modal -->
+<div class="modal-overlay" id="dlModal">
+  <div class="modal">
+    <h2>✅ Dashboard Generated!</h2>
+    <p style="color:var(--muted);font-size:13px;margin-bottom:1.5rem">Download your files and follow the README for deployment.</p>
+    <div class="file-list" id="fileList"></div>
+    <div>
+      <button class="dl-btn primary" onclick="downloadAll()">⬇ Download All (.zip)</button>
+      <button class="dl-btn" onclick="document.getElementById('dlModal').classList.remove('show')">Close</button>
+    </div>
   </div>
 </div>
 
-<!-- APP -->
-<div id="appWrap">
-  <header class="header">
-    <div class="header-left">Momentum Digital <span class="badge">Dashboard Generator</span></div>
-    <div class="header-right">internal tool · v2.0 <button class="so-btn" onclick="signOut()">Sign out</button></div>
-  </header>
-
-  <nav class="tab-nav">
-    <button class="tab-btn active" id="tab-btn-generator" onclick="switchTab('generator')">⚡ Dashboard Generator</button>
-    <button class="tab-btn" id="tab-btn-env" onclick="switchTab('env')">🔑 Create .env File</button>
-  </nav>
-
-  <!-- TAB: DASHBOARD GENERATOR -->
-  <div class="tab-panel active" id="tab-panel-generator">
-    <div class="container">
-      <div class="page-title">New Client Dashboard</div>
-      <div class="page-sub">Fill in the client details, configure data sources and features, then download a ready-to-run zip.</div>
-
-      <div class="err-bar" id="genErrBar"></div>
-
-      <!-- Client Info -->
-      <div class="card">
-        <div class="card-hd"><div class="card-icon" style="background:#eff6ff">🏢</div><div><div class="card-title">Client Information</div><div class="card-sub">Name, website and branding</div></div></div>
-        <div class="card-bd">
-          <div class="field-row">
-            <div class="field"><label>Client Name *</label><input type="text" id="g-clientName" placeholder="e.g. Penn Pain Physicians"></div>
-            <div class="field"><label>Client Website</label><input type="url" id="g-clientWebsite" placeholder="https://example.com"></div>
-          </div>
-          <div class="field-row">
-            <div class="field">
-              <label>Brand Color</label>
-              <div class="color-row">
-                <input type="color" id="g-brandColor" value="#3a8fd4" oninput="document.getElementById('g-brandColorHex').value=this.value">
-                <input type="text" id="g-brandColorHex" class="color-hex" placeholder="#3a8fd4" value="#3a8fd4" oninput="if(/^#[0-9a-fA-F]{6}$/.test(this.value))document.getElementById('g-brandColor').value=this.value">
-              </div>
-            </div>
-            <div class="field">
-              <label>Client Logo</label>
-              <div class="logo-drop" id="logoDrop" onclick="document.getElementById('logoFile').click()">
-                <img id="logoPreview" class="logo-preview-img" alt="">
-                <div id="logoPlaceholder"><div style="font-size:18px;margin-bottom:3px">🖼️</div><div style="font-size:12px;color:var(--muted)">Click to upload (PNG, SVG, WebP)</div></div>
-              </div>
-              <input type="file" id="logoFile" accept="image/*" style="display:none" onchange="handleLogo(this)">
-              <div style="margin-top:8px;display:flex;align-items:center;gap:8px">
-                <input type="checkbox" id="g-logoInvert" checked style="width:14px;height:14px;cursor:pointer">
-                <label for="g-logoInvert" style="font-size:12px;color:var(--muted);cursor:pointer;font-weight:400">Invert logo to white (for dark sidebars)</label>
-              </div>
-            </div>
-          </div>
-          <div class="field-row">
-            <div class="field"><label>Client Initials</label><input type="text" id="g-initials" placeholder="e.g. PP" maxlength="2" style="text-transform:uppercase"><div class="hint">2 letters for avatar when no logo</div></div>
-            <div class="field"><label>Agency Label</label><input type="text" id="g-agencyLabel" value="Momentum Digital"></div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Data Sources -->
-      <div class="card">
-        <div class="card-hd"><div class="card-icon" style="background:#f0fdf4">📡</div><div><div class="card-title">Data Sources</div><div class="card-sub">Toggle on what this client uses</div></div></div>
-        <div class="card-bd">
-
-          <div class="feature-row">
-            <div class="feature-info"><span style="font-size:18px">📊</span><div><div class="feature-name">Google Analytics 4</div><div class="feature-desc">Sessions, users, bounce rate, conversions</div></div></div>
-            <button class="toggle on" id="tog-ga4" onclick="toggleSrc('ga4')"></button>
-          </div>
-          <div class="sub-fields open" id="sub-ga4">
-            <div class="field"><label>GA4 Property ID *</label><input type="text" id="g-ga4Id" placeholder="e.g. 486245473" style="font-family:var(--mono)"><div class="hint">GA4 → Admin → Property Settings → Property ID</div></div>
-            <div class="hint" style="margin-top:8px;padding:8px 12px;background:#f0fdf4;border-radius:6px;border:1px solid #bbf7d0;color:#166534">
-              ✅ <strong>Auto-discovery:</strong> The dashboard automatically detects all GA4 key events and creates KPI cards for each one. No configuration needed.
-            </div>
-          </div>
-
-          <div class="feature-row" style="margin-top:8px">
-            <div class="feature-info"><span style="font-size:18px">🔍</span><div><div class="feature-name">Search Console</div><div class="feature-desc">Clicks, impressions, CTR, top queries</div></div></div>
-            <button class="toggle on" id="tog-gsc" onclick="toggleSrc('gsc')"></button>
-          </div>
-          <div class="sub-fields open" id="sub-gsc">
-            <div class="field"><label>GSC Site URL *</label><input type="text" id="g-gscUrl" placeholder="e.g. sc-domain:example.com" style="font-family:var(--mono)"><div class="hint">Use sc-domain:example.com for domain properties, or https://example.com/ for URL prefix</div></div>
-          </div>
-
-          <div class="feature-row" style="margin-top:8px">
-            <div class="feature-info"><span style="font-size:18px">📞</span><div><div class="feature-name">WhatConverts</div><div class="feature-desc">Calls, forms, lead tracking</div></div></div>
-            <button class="toggle" id="tog-wc" onclick="toggleSrc('wc')"></button>
-          </div>
-          <div class="sub-fields" id="sub-wc">
-            <div class="field"><label>Profile ID *</label><input type="text" id="g-wcId" placeholder="e.g. 148479" style="font-family:var(--mono)"><div class="hint">Visible in the WhatConverts URL when viewing the client profile</div></div>
-          </div>
-
-          <div class="feature-row" style="margin-top:8px">
-            <div class="feature-info"><span style="font-size:18px">📋</span><div><div class="feature-name">Google Sheets</div><div class="feature-desc">Custom data columns — ad spend, revenue, leads or any metric</div></div></div>
-            <button class="toggle" id="tog-sheets" onclick="toggleSrc('sheets')"></button>
-          </div>
-          <div class="sub-fields" id="sub-sheets">
-            <div class="sub-label">📋 Google Sheets Configuration</div>
-            <div class="field-row" style="margin-bottom:14px">
-              <div class="field"><label>Sheet ID *</label><input type="text" id="g-sheetId" placeholder="1cXnqHBu9OJ..." style="font-family:var(--mono)"><div class="hint">Long ID from the sheet URL</div></div>
-              <div class="field"><label>Tab Name *</label><input type="text" id="g-sheetTab" placeholder="dashboard_data"><div class="hint">Exact name of the data tab</div></div>
-            </div>
-            <div style="font-size:11px;font-weight:600;font-family:var(--mono);color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:10px">
-              Data Columns (Column A is always Date)
-            </div>
-            <div id="sheetColsContainer"></div>
-            <button class="add-col-btn" onclick="addSheetColumn()">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-              Add Column
-            </button>
-            <div class="hint" style="margin-top:8px">Each column becomes a KPI card and chart on the dashboard. Add as many as needed.</div>
-          </div>
-
-        </div>
-      </div>
-
-      <!-- Features -->
-      <div class="card">
-        <div class="card-hd"><div class="card-icon" style="background:#fefce8">⚡</div><div><div class="card-title">Features</div><div class="card-sub">Optional modules to include</div></div></div>
-        <div class="card-bd">
-
-          <div class="feature-row">
-            <div class="feature-info"><span style="font-size:18px">📋</span><div><div class="feature-name">Document Review Portal</div><div class="feature-desc">Share Google Docs with clients for approval — requires Supabase</div></div></div>
-            <button class="toggle" id="tog-docs" onclick="toggleFeat('docs')"></button>
-          </div>
-          <div class="sub-fields" id="sub-docs">
-            <div class="field-row">
-              <div class="field"><label>Supabase URL</label><input type="url" id="g-supabaseUrl" placeholder="https://xxxx.supabase.co" style="font-family:var(--mono)"></div>
-              <div class="field">
-                <label>Redirect URI</label>
-                <input type="url" id="g-redirectUri" placeholder="https://your-client.vercel.app/auth/callback" style="font-family:var(--mono)">
-                <div class="hint">Your Vercel deployment URL + <code>/auth/callback</code>. Set this in Google Cloud → APIs & Services → Credentials → OAuth 2.0 Client → Authorized redirect URIs. Also add <code>http://localhost:3000/auth/callback</code> for local testing.</div>
-              </div>
-            </div>
-            <div class="hint" style="margin-top:-6px">Supabase service key and OAuth secrets go in the .env file — not here</div>
-          </div>
-
-          <div class="feature-row" style="margin-top:8px">
-            <div class="feature-info"><span style="font-size:18px">⭐</span><div><div class="feature-name">Qualified Leads Tracking</div><div class="feature-desc">Track leads marked Quotable = Yes in WhatConverts — requires WhatConverts</div></div></div>
-            <button class="toggle" id="tog-qualified" onclick="toggleFeat('qualified')"></button>
-          </div>
-          <div class="sub-fields" id="sub-qualified">
-            <div class="field">
-              <label>What do you call these leads? *</label>
-              <input type="text" id="g-qualifiedLabel" placeholder="e.g. NP Appointments, Booked Demos, Qualified Leads">
-              <div class="hint">This label appears throughout the dashboard — e.g. "NP Appointments Tracking", "Booked Demos by Source"</div>
-            </div>
-          </div>
-
-          <div class="feature-row" style="margin-top:8px">
-            <div class="feature-info"><span style="font-size:18px">💰</span><div><div class="feature-name">Ad Spend Tracking</div><div class="feature-desc">Show ad spend KPI from Google Sheets — sheet must have columns: Date, Week Start, Week End, then data columns</div></div></div>
-            <button class="toggle" id="tog-adspend" onclick="toggleFeat('adspend')"></button>
-          </div>
-          <div class="sub-fields" id="sub-adspend">
-            <div class="hint" style="padding:12px;background:rgba(99,102,241,0.08);border-radius:8px;border:1px solid rgba(99,102,241,0.2);color:#a5b4fc;margin-bottom:12px;line-height:1.5">
-              <strong>ℹ️ Uses Google Sheets Configuration</strong><br>
-              Ad Spend Tracking automatically uses the data columns you defined in the "Google Sheets" section above. 
-              Just ensure your sheet has a column labeled something like "Ad Spend" or "Spend" for the dashboard to display it correctly.
-            </div>
-          </div>
-
-          <div class="feature-row" style="margin-top:8px">
-            <div class="feature-info"><span style="font-size:18px">📍</span><div><div class="feature-name">Google Business Profile</div><div class="feature-desc">GBP impressions, calls, directions, website clicks — via Agency Analytics Google Sheets add-on</div></div></div>
-            <button class="toggle" id="tog-gmb" onclick="toggleFeat('gmb')"></button>
-          </div>
-          <div class="sub-fields" id="sub-gmb">
-            <div class="field">
-              <label>GMB Google Sheet ID</label>
-              <input type="text" id="g-gmbSheetId" placeholder="Leave blank to use the same Sheet ID as above" style="font-family:var(--mono)">
-              <div class="hint">If GBP data is in a different Google Sheet than your main sheet, paste its ID here. Otherwise leave blank.</div>
-            </div>
-            <div class="field">
-              <label>GMB Sheet Tab Name</label>
-              <input type="text" id="g-gmbTab" placeholder="gmb_data" value="gmb_data" style="font-family:var(--mono)">
-              <div class="hint">The tab name where Agency Analytics exports GBP data</div>
-            </div>
-          </div>
-
-          <div class="feature-row" style="margin-top:8px">
-            <div class="feature-info"><span style="font-size:18px">🔐</span><div><div class="feature-name">Dashboard Login</div><div class="feature-desc">Protect the dashboard with email/password login — requires Supabase</div></div></div>
-            <button class="toggle" id="tog-dashLogin" onclick="toggleFeat('dashLogin')"></button>
-          </div>
-          <div class="sub-fields" id="sub-dashLogin">
-            <div style="font-size:11px;font-weight:600;font-family:var(--mono);color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:10px">Initial Users</div>
-            <div id="dashUsersContainer"></div>
-            <button class="add-col-btn" onclick="addDashUser()" style="margin-top:8px">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-              Add User
-            </button>
-            <div class="hint" style="margin-top:8px">Users are added to Supabase <code>dashboard_users</code> table. Passwords are hashed with bcrypt in the generated SQL.</div>
-          </div>
-          </div>
-
-        </div>
-      </div>
-
-      <!-- Generate CTA -->
-      <div class="cta-box">
-        <div id="genForm">
-          <div class="cta-title">Ready to generate?</div>
-          <div class="cta-sub">Creates a complete zip — server.js, index.html, package.json, vercel.json, .env.example and README — all configured for this client.</div>
-          <button class="cta-btn" id="genBtn" onclick="generateDashboard()">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-            Generate Dashboard
-          </button>
-        </div>
-        <div class="success-block" id="genSuccess">
-          <div class="success-icon">🎉</div>
-          <div class="success-title" id="genSuccessTitle">Dashboard ready!</div>
-          <div class="success-sub" id="genSuccessSub">Download the zip, then go to the 🔑 Create .env File tab so oB can prepare the credentials.</div>
-          <div>
-            <a class="cta-btn green" id="genDownloadBtn" href="#" download style="text-decoration:none">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-              Download ZIP
-            </a>
-            <button class="alt-btn" onclick="resetGen()">Generate another</button>
-          </div>
-          <div class="file-list" id="genFileList"></div>
-        </div>
-      </div>
-    </div>
-  </div><!-- end tab-panel-generator -->
-
-  <!-- TAB: CREATE .ENV -->
-  <div class="tab-panel" id="tab-panel-env">
-    <div class="container">
-      <div class="page-title">Create .env File</div>
-      <div class="page-sub">Fill in the credentials for a client. Downloads a correctly formatted .env file to send to Melissa.</div>
-
-      <div class="err-bar" id="envErrBar"></div>
-
-      <div class="card">
-        <div class="card-hd"><div class="card-icon" style="background:#eff6ff">🏷️</div><div><div class="card-title">Client</div><div class="card-sub">Which client is this .env for?</div></div></div>
-        <div class="card-bd">
-          <div class="field"><label>Client Name *</label><input type="text" id="e-clientName" placeholder="e.g. Penn Pain Physicians"><div class="hint">Used to name the file — e.g. pennpain.env</div></div>
-        </div>
-      </div>
-
-      <div class="card">
-        <div class="card-hd"><div class="card-icon" style="background:#f0fdf4">🔑</div><div><div class="card-title">Google Service Account</div><div class="card-sub">Same credentials used for all clients — from Google Cloud</div></div></div>
-        <div class="card-bd">
-          <div class="key-note">
-            💡 <strong>This is the same service account for all clients.</strong> You only need to find these once.<br><br>
-            <strong>Where to find it:</strong> Google Cloud Console → IAM & Admin → Service Accounts → click the account → Keys tab → download JSON.<br>
-            The JSON file contains <span style="font-family:var(--mono);background:rgba(0,0,0,0.06);padding:1px 4px;border-radius:3px">client_email</span> and <span style="font-family:var(--mono);background:rgba(0,0,0,0.06);padding:1px 4px;border-radius:3px">private_key</span> — copy both below.
-          </div>
-          <div class="field"><label>Service Account Email *</label><input type="text" id="e-saEmail" placeholder="name@project.iam.gserviceaccount.com" style="font-family:var(--mono)"></div>
-          <div class="field">
-            <label>Private Key *</label>
-            <div class="hint" style="margin-bottom:6px">Paste the entire value including -----BEGIN PRIVATE KEY----- and -----END PRIVATE KEY-----</div>
-            <textarea id="e-privateKey" placeholder="-----BEGIN PRIVATE KEY-----&#10;MIIEvgIBADANBgkq...&#10;-----END PRIVATE KEY-----"></textarea>
-          </div>
-        </div>
-      </div>
-
-      <div class="card">
-        <div class="card-hd"><div class="card-icon" style="background:#fefce8">📞</div><div><div class="card-title">WhatConverts <span style="font-size:11px;font-weight:400;color:var(--muted)">(optional)</span></div><div class="card-sub">Leave blank if client doesn't use WhatConverts</div></div></div>
-        <div class="card-bd">
-          <div class="field-row">
-            <div class="field"><label>API Token</label><div class="secret-row"><input type="password" id="e-wcToken" placeholder="your_token" style="font-family:var(--mono)"><button class="reveal-btn" onclick="toggleReveal('e-wcToken',this)">Show</button></div></div>
-            <div class="field"><label>API Secret</label><div class="secret-row"><input type="password" id="e-wcSecret" placeholder="your_secret" style="font-family:var(--mono)"><button class="reveal-btn" onclick="toggleReveal('e-wcSecret',this)">Show</button></div></div>
-          </div>
-          <div class="hint">Found in WhatConverts → Account Settings → API Access</div>
-        </div>
-      </div>
-
-      <div class="card">
-        <div class="card-hd"><div class="card-icon" style="background:#fdf4ff">🗄️</div><div><div class="card-title">Supabase + Google OAuth <span style="font-size:11px;font-weight:400;color:var(--muted)">(optional — Document Review only)</span></div><div class="card-sub">Leave all blank if Document Review is not enabled</div></div></div>
-        <div class="card-bd">
-          <div class="field-row">
-            <div class="field"><label>Supabase URL</label><input type="url" id="e-supabaseUrl" placeholder="https://xxxx.supabase.co" style="font-family:var(--mono)"></div>
-            <div class="field"><label>Supabase Service Key</label><div class="secret-row"><input type="password" id="e-supabaseKey" placeholder="eyJ..." style="font-family:var(--mono)"><button class="reveal-btn" onclick="toggleReveal('e-supabaseKey',this)">Show</button></div></div>
-          </div>
-          <div class="field-row">
-            <div class="field"><label>OAuth Client ID</label><input type="text" id="e-oauthId" placeholder="123456.apps.googleusercontent.com" style="font-family:var(--mono)"></div>
-            <div class="field"><label>OAuth Client Secret</label><div class="secret-row"><input type="password" id="e-oauthSecret" placeholder="GOCSPX-..." style="font-family:var(--mono)"><button class="reveal-btn" onclick="toggleReveal('e-oauthSecret',this)">Show</button></div></div>
-          </div>
-          <div class="field-row">
-            <div class="field"><label>Redirect URI</label><input type="url" id="e-redirectUri" value="http://localhost:3000/auth/callback" style="font-family:var(--mono)"></div>
-            <div class="field"><label>Session Secret</label><div class="secret-row"><input type="text" id="e-sessionSecret" placeholder="click Generate →" style="font-family:var(--mono)"><button class="gen-btn" onclick="genSecret()">Generate</button></div><div class="hint">Any random string — click Generate</div></div>
-          </div>
-        </div>
-      </div>
-
-      <div class="cta-box">
-        <div id="envForm">
-          <div class="cta-title">Ready to create .env?</div>
-          <div class="cta-sub">Formats the private key correctly and downloads a .env file ready to drop into Melissa's dashboard folder.</div>
-          <button class="cta-btn" id="envBtn" onclick="generateEnv()">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            Download .env File
-          </button>
-        </div>
-        <div class="success-block" id="envSuccess">
-          <div class="success-icon">✅</div>
-          <div class="success-title" id="envSuccessTitle">.env ready!</div>
-          <div class="success-sub">Send to Melissa via Slack DM. She places it in the dashboard folder alongside server.js — filename must be exactly <strong>.env</strong></div>
-          <div>
-            <a class="cta-btn green" id="envDownloadBtn" href="#" style="text-decoration:none">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-              Download .env
-            </a>
-            <button class="alt-btn" onclick="resetEnv()">Create another</button>
-          </div>
-          <div class="env-preview"><div class="env-preview-title">Preview — private key hidden</div><pre id="envPreview"></pre></div>
-        </div>
-      </div>
-    </div>
-  </div><!-- end tab-panel-env -->
-
-</div><!-- end appWrap -->
-
 <script>
-let pw = '';
-let logoB64 = null;
-const src = { ga4: true, gsc: true, wc: false, sheets: false };
-const feat = { docs: false, qualified: false, adspend: false, gmb: false, dashLogin: false };
-let sheetColCount = 0;
+// ── State ──────────────────────────────────────────────────────────────────
+const src = { ga4: false, gsc: false, wc: false, sheets: false };
+const feat = { adspend: false, qualified: false, gmb: false, dashLogin: false, docs: false };
+let generatedFiles = null;
 
-// ── Auth ───────────────────────────────────────────────────────────────────
-async function login() {
-  const val = document.getElementById('pwInput').value;
-  const res = await fetch('/api/auth', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({password:val}) });
-  if (res.ok) {
-    pw = val;
-    document.getElementById('loginWrap').style.display = 'none';
-    document.getElementById('appWrap').style.display = 'block';
-    document.getElementById('pwErr').style.display = 'none';
-    // Add default sheet column
-    addSheetColumn();
-  } else {
-    document.getElementById('pwErr').style.display = 'block';
-  }
+// ── Toggles ───────────────────────────────────────────────────────────────
+function toggleSrc(key) {
+  src[key] = !src[key];
+  document.getElementById(`tog-${key}`).classList.toggle('active', src[key]);
+  document.getElementById(`sub-${key}`).classList.toggle('show', src[key]);
 }
-function signOut() {
-  pw = '';
-  document.getElementById('appWrap').style.display = 'none';
-  document.getElementById('loginWrap').style.display = 'flex';
-  document.getElementById('pwInput').value = '';
+function toggleFeat(key) {
+  feat[key] = !feat[key];
+  document.getElementById(`tog-${key}`).classList.toggle('active', feat[key]);
+  document.getElementById(`sub-${key}`)?.classList.toggle('show', feat[key]);
 }
 
-// ── Tabs ───────────────────────────────────────────────────────────────────
-function switchTab(tab) {
-  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
-  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
-  if (tab === 'env') {
-    const cn = document.getElementById('g-clientName')?.value?.trim();
-    const ef = document.getElementById('e-clientName');
-    if (cn && ef && !ef.value) ef.value = cn;
-  }
-  document.getElementById('tab-btn-'+tab).classList.add('active');
-  document.getElementById('tab-panel-'+tab).classList.add('active');
+// ── Column Mapper System ──────────────────────────────────────────────────
+const COLUMN_PURPOSES = {
+  'date_label': { label: 'Date Label (A)', icon: '', required: true },
+  'week_start': { label: 'Week Start (B)', icon: '📆', required: true },
+  'week_end': { label: 'Week End (C)', icon: '📆', required: true },
+  'ad_spend': { label: 'Ad Spend', icon: '💰', color: '#f87171' },
+  'np_appointments': { label: 'NP Appointments', icon: '', color: '#00d084' },
+  'future_apps': { label: 'Future Month Apps', icon: '📅', color: '#4d9fff' },
+  'mtd_total': { label: 'MTD Total', icon: '📊', color: '#f59e0b' },
+  'revenue': { label: 'Revenue', icon: '💵', color: '#10b981' },
+  'leads': { label: 'Leads', icon: '🎯', color: '#8b5cf6' },
+  'calls': { label: 'Phone Calls', icon: '📞', color: '#06b6d4' },
+  'forms': { label: 'Form Submissions', icon: '📝', color: '#ec4899' },
+  'custom': { label: 'Custom KPI', icon: '', color: '#6b7280' },
+  'ignore': { label: '— Ignore —', icon: '⊘', color: null }
+};
+
+const TEMPLATES = {
+  np_appointments: {
+    columns: { 'D': { purpose: 'ad_spend', type: 'currency' }, 'E': { purpose: 'np_appointments', type: 'integer' }, 'F': { purpose: 'future_apps', type: 'integer' }, 'G': { purpose: 'mtd_total', type: 'integer' } }
+  },
+  ad_spend_only: {
+    columns: { 'D': { purpose: 'ad_spend', type: 'currency' } }
+  },
+  revenue_tracking: {
+    columns: { 'D': { purpose: 'revenue', type: 'currency' }, 'E': { purpose: 'leads', type: 'integer' }, 'F': { purpose: 'ad_spend', type: 'currency' } }
+  },
+  custom_kpis: {
+    columns: { 'D': { purpose: 'custom', type: 'number' }, 'E': { purpose: 'custom', type: 'number' }, 'F': { purpose: 'custom', type: 'number' } }
+  },
+  blank: { columns: {} }
+};
+
+function initColumnMapper() {
+  const container = document.getElementById('columnMapper');
+  const columns = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'];
+  
+  container.innerHTML = columns.map(col => {
+    const isFixed = ['A', 'B', 'C'].includes(col);
+    const defaultPurpose = isFixed ? (col === 'A' ? 'date_label' : col === 'B' ? 'week_start' : 'week_end') : 'ignore';
+    const defaultColor = COLUMN_PURPOSES[defaultPurpose]?.color || '#4d9fff';
+    
+    return `
+      <div class="col-mapping-row" id="col-row-${col}" style="${isFixed ? 'opacity:0.6' : ''}">
+        <div class="col-letter">${col}</div>
+        <select id="col-purpose-${col}" onchange="updateColumnVisibility('${col}')" ${isFixed ? 'disabled' : ''}>
+          ${Object.entries(COLUMN_PURPOSES).map(([key, p]) => `<option value="${key}" ${key === defaultPurpose ? 'selected' : ''}>${p.icon} ${p.label}</option>`).join('')}
+        </select>
+        <select id="col-type-${col}" ${isFixed ? 'disabled' : ''}>
+          <option value="currency">Currency ($)</option>
+          <option value="number">Number</option>
+          <option value="integer">Integer</option>
+        </select>
+        <input type="color" id="col-color-${col}" value="${defaultColor}" ${isFixed ? 'disabled' : ''}>
+        ${!isFixed ? `<button onclick="resetColumn('${col}')" title="Reset">↺</button>` : '<div></div>'}
+      </div>
+    `;
+  }).join('');
+  
+  // Initialize visibility states
+  columns.forEach(col => updateColumnVisibility(col));
 }
 
-// ── Logo ───────────────────────────────────────────────────────────────────
-function handleLogo(input) {
-  const file = input.files[0]; if(!file) return;
-  const reader = new FileReader();
-  reader.onload = e => {
-    logoB64 = e.target.result;
-    document.getElementById('logoPreview').src = logoB64;
-    document.getElementById('logoPreview').style.display = 'block';
-    document.getElementById('logoPlaceholder').style.display = 'none';
-    document.getElementById('logoDrop').classList.add('has-logo');
-  };
-  reader.readAsDataURL(file);
-}
-
-// ── Toggles ────────────────────────────────────────────────────────────────
-function toggleSrc(id) {
-  src[id] = !src[id];
-  document.getElementById('tog-'+id).classList.toggle('on', src[id]);
-  document.getElementById('sub-'+id).classList.toggle('open', src[id]);
-}
-
-function toggleFeat(id) {
-  feat[id] = !feat[id];
-  document.getElementById('tog-'+id).classList.toggle('on', feat[id]);
-  const sub = document.getElementById('sub-'+id);
-  if(sub) sub.classList.toggle('open', feat[id]);
-  if(id==='qualified' && feat[id] && !src.wc) { src.wc=true; document.getElementById('tog-wc').classList.add('on'); document.getElementById('sub-wc').classList.add('open'); }
-  if(id==='adspend' && feat[id]) {
-    if (!src.sheets) { src.sheets=true; document.getElementById('tog-sheets').classList.add('on'); document.getElementById('sub-sheets').classList.add('open'); }
-    if (document.getElementById('adspendColsContainer').children.length === 0) addAdSpendColumn();
-  }
-}
-
-// ── Sheet columns ──────────────────────────────────────────────────────────
-const COLUMN_LETTERS = ['B','C','D','E','F','G'];
-const DEFAULT_COLORS = ['#f87171','#00d084','#4d9fff','#f59e0b','#a78bfa','#06b6d4'];
-
-function addSheetColumn() {
-  const container = document.getElementById('sheetColsContainer');
-  const idx = sheetColCount;
-  const colLetter = COLUMN_LETTERS[idx] || String.fromCharCode(66+idx);
-  const defaultColor = DEFAULT_COLORS[idx % DEFAULT_COLORS.length];
-
-  const div = document.createElement('div');
-  div.className = 'col-row';
-  div.id = `col-row-${idx}`;
-  div.innerHTML = `
-    <div class="field" style="margin-bottom:0">
-      <label>Column ${colLetter} — Label</label>
-      <input type="text" id="col-label-${idx}" placeholder="e.g. Ad Spend, Revenue, Leads" style="font-family:var(--font)">
-    </div>
-    <div class="field" style="margin-bottom:0">
-      <label>Type</label>
-      <select id="col-type-${idx}" class="col-type-select">
-        <option value="currency">Currency ($)</option>
-        <option value="number">Number</option>
-        <option value="integer">Integer</option>
-      </select>
-    </div>
-    <div class="field" style="margin-bottom:0">
-      <label>Color</label>
-      <input type="color" id="col-color-${idx}" value="${defaultColor}" style="width:42px;height:36px">
-    </div>
-    <button class="remove-col" onclick="removeSheetColumn(${idx})" title="Remove column">✕</button>
-  `;
-  container.appendChild(div);
-  sheetColCount++;
-}
-
-function removeSheetColumn(idx) {
-  const el = document.getElementById(`col-row-${idx}`);
-  if(el) el.remove();
-}
-
-// ── Dashboard users ───────────────────────────────────────────────────────
-let dashUserCount = 0;
-
-function addDashUser() {
-  dashUserCount++;
-  const id = dashUserCount;
-  const div = document.createElement('div');
-  div.className = 'col-row';
-  div.id = `dash-user-${id}`;
-  div.style.cssText = 'flex-wrap:wrap;gap:8px;align-items:flex-end';
-  div.innerHTML = `
-    <div class="field" style="margin-bottom:0;flex:2;min-width:160px">
-      <label>Email</label>
-      <input type="email" placeholder="user@email.com" id="du-email-${id}">
-    </div>
-    <div class="field" style="margin-bottom:0;flex:1;min-width:100px">
-      <label>Name</label>
-      <input type="text" placeholder="Full Name" id="du-name-${id}">
-    </div>
-    <div class="field" style="margin-bottom:0;flex:1;min-width:120px">
-      <label>Password</label>
-      <input type="password" placeholder="••••••••" id="du-pass-${id}">
-    </div>
-    <div class="field" style="margin-bottom:0;flex:0 0 100px">
-      <label>Role</label>
-      <select id="du-role-${id}" style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--radius-sm);color:var(--text);padding:9px 12px;font-size:13px">
-        <option value="viewer">Viewer</option>
-        <option value="admin">Admin</option>
-      </select>
-    </div>
-    <button class="remove-col" onclick="document.getElementById('dash-user-${id}').remove()" title="Remove">✕</button>
-  `;
-  document.getElementById('dashUsersContainer').appendChild(div);
-}
-
-function getDashUsers() {
-  const users = [];
-  document.querySelectorAll('[id^="dash-user-"]').forEach(row => {
-    const id = row.id.replace('dash-user-','');
-    const email = document.getElementById(`du-email-${id}`)?.value?.trim();
-    const name = document.getElementById(`du-name-${id}`)?.value?.trim();
-    const password = document.getElementById(`du-pass-${id}`)?.value;
-    const role = document.getElementById(`du-role-${id}`)?.value || 'viewer';
-    if (email && password) users.push({ email, name, password, role });
+function applySheetTemplate() {
+  const templateKey = document.getElementById('sheetTemplate').value;
+  if (!templateKey || !TEMPLATES[templateKey]) return;
+  
+  const templateCols = TEMPLATES[templateKey].columns;
+  ['D','E','F','G','H','I','J'].forEach(col => {
+    const config = templateCols[col] || { purpose: 'ignore', type: 'number' };
+    document.getElementById(`col-purpose-${col}`).value = config.purpose;
+    document.getElementById(`col-type-${col}`).value = config.type;
+    if (COLUMN_PURPOSES[config.purpose]?.color) {
+      document.getElementById(`col-color-${col}`).value = COLUMN_PURPOSES[config.purpose].color;
+    }
+    updateColumnVisibility(col);
   });
-  return users;
 }
 
-function getSheetColumns() {
-  const cols = [];
-  for(let i = 0; i < sheetColCount; i++) {
-    const labelEl = document.getElementById(`col-label-${i}`);
-    const typeEl = document.getElementById(`col-type-${i}`);
-    const colorEl = document.getElementById(`col-color-${i}`);
-    if(!labelEl || !document.getElementById(`col-row-${i}`)) continue;
-    const label = labelEl.value.trim();
-    if(!label) continue;
-    const key = label.toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'');
-    cols.push({ key, label, type: typeEl?.value || 'number', color: colorEl?.value || '#4d9fff' });
+function updateColumnVisibility(col) {
+  const purpose = document.getElementById(`col-purpose-${col}`).value;
+  const colorEl = document.getElementById(`col-color-${col}`);
+  const typeEl = document.getElementById(`col-type-${col}`);
+  const rowEl = document.getElementById(`col-row-${col}`);
+  const isRequired = COLUMN_PURPOSES[purpose]?.required;
+  const isIgnored = purpose === 'ignore';
+  
+  const disabled = isRequired || isIgnored;
+  colorEl.disabled = disabled;
+  typeEl.disabled = disabled;
+  colorEl.style.opacity = disabled ? '0.3' : '1';
+  typeEl.style.opacity = disabled ? '0.3' : '1';
+  rowEl.style.opacity = isIgnored ? '0.5' : '1';
+  
+  if (!disabled && COLUMN_PURPOSES[purpose]?.color) {
+    colorEl.value = COLUMN_PURPOSES[purpose].color;
   }
-  return cols;
 }
 
-// ── Helpers ────────────────────────────────────────────────────────────────
-function showErr(barId, msg) {
-  const el = document.getElementById(barId);
-  el.textContent = '⚠ '+msg; el.style.display='block';
-  el.scrollIntoView({behavior:'smooth',block:'nearest'});
-  setTimeout(()=>el.style.display='none', 6000);
+function resetColumn(col) {
+  document.getElementById(`col-purpose-${col}`).value = 'ignore';
+  document.getElementById(`col-type-${col}`).value = 'number';
+  updateColumnVisibility(col);
 }
 
-function toggleReveal(id, btn) {
-  const el = document.getElementById(id);
-  if(el.type==='password'){el.type='text';btn.textContent='Hide';}
-  else{el.type='password';btn.textContent='Show';}
-}
-
-function genSecret() {
-  const c='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  document.getElementById('e-sessionSecret').value = Array.from({length:32},()=>c[Math.floor(Math.random()*c.length)]).join('');
-}
-
-function toSlug(name) {
-  return name.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+function getSheetColumnsFromMapper() {
+  const columns = [];
+  ['D','E','F','G','H','I','J'].forEach(col => {
+    const purpose = document.getElementById(`col-purpose-${col}`).value;
+    if (purpose !== 'ignore' && !COLUMN_PURPOSES[purpose].required) {
+      const pConfig = COLUMN_PURPOSES[purpose];
+      columns.push({
+        key: purpose,
+        label: pConfig.label.replace(/^[^\w\s]+[\s]*/, ''), // strip icon
+        type: document.getElementById(`col-type-${col}`).value,
+        color: document.getElementById(`col-color-${col}`).value,
+        column_letter: col
+      });
+    }
+  });
+  return columns;
 }
 
 // ── Generate Dashboard ─────────────────────────────────────────────────────
 async function generateDashboard() {
   const clientName = document.getElementById('g-clientName').value.trim();
-  if(!clientName) { showErr('genErrBar','Client name is required'); return; }
-  if(src.ga4 && !document.getElementById('g-ga4Id').value.trim()) { showErr('genErrBar','GA4 Property ID is required'); return; }
-  if(src.gsc && !document.getElementById('g-gscUrl').value.trim()) { showErr('genErrBar','GSC Site URL is required'); return; }
-  if(src.wc && !document.getElementById('g-wcId').value.trim()) { showErr('genErrBar','WhatConverts Profile ID is required'); return; }
+  if(!clientName) return showErr('Client name is required');
+  if(src.ga4 && !document.getElementById('g-ga4Id').value.trim()) return showErr('GA4 Property ID is required');
+  if(src.gsc && !document.getElementById('g-gscUrl').value.trim()) return showErr('GSC Site URL is required');
+  if(src.wc && !document.getElementById('g-wcId').value.trim()) return showErr('WhatConverts Profile ID is required');
   if(src.sheets) {
-    if(!document.getElementById('g-sheetId').value.trim()) { showErr('genErrBar','Sheet ID is required'); return; }
-    const cols = getSheetColumns();
-    if(cols.length === 0) { showErr('genErrBar','Add at least one data column for Google Sheets'); return; }
-  }
-  if(feat.qualified && !document.getElementById('g-qualifiedLabel').value.trim()) {
-    showErr('genErrBar','Please enter a label for qualified leads (e.g. NP Appointments)'); return;
+    if(!document.getElementById('g-sheetId').value.trim()) return showErr('Sheet ID is required');
+    if(getSheetColumnsFromMapper().length === 0) return showErr('Map at least one data column (D-J) for Google Sheets');
   }
 
   const btn = document.getElementById('genBtn');
-  btn.disabled = true;
-  btn.innerHTML = '<span class="spin">↻</span> Generating…';
+  btn.disabled = true; btn.innerHTML = '<span style="animation:spin 1s linear infinite">↻</span> Generating…';
 
-  const sheetColumns = src.sheets ? getSheetColumns() : [];
+  const sheetColumns = src.sheets ? getSheetColumnsFromMapper() : [];
 
   const config = {
-    clientName, logoB64,
+    clientName,
     clientWebsite: document.getElementById('g-clientWebsite').value.trim(),
-    clientInitials: document.getElementById('g-initials').value.trim().toUpperCase(),
     brandColor: document.getElementById('g-brandColor').value,
     agencyLabel: document.getElementById('g-agencyLabel').value.trim(),
     ga4PropertyId: document.getElementById('g-ga4Id').value.trim(),
@@ -705,106 +387,46 @@ async function generateDashboard() {
     sheetTab: document.getElementById('g-sheetTab').value.trim() || 'dashboard_data',
     sheetColumns,
     qualifiedLabel: document.getElementById('g-qualifiedLabel').value.trim() || 'Qualified Leads',
-    supabaseUrl: document.getElementById('g-supabaseUrl').value.trim(),
-    redirectUri: document.getElementById('g-redirectUri').value.trim() || 'http://localhost:3000/auth/callback',
     useGA4: src.ga4, useGSC: src.gsc, useWC: src.wc, useSheets: src.sheets,
     useDocs: feat.docs, useQualified: feat.qualified, useAdSpend: feat.adspend,
-    useGMB: feat.gmb, useDashboardLogin: feat.dashLogin,
-    gmbTab: document.getElementById('g-gmbTab')?.value?.trim() || 'gmb_data',
-    gmbSheetId: document.getElementById('g-gmbSheetId')?.value?.trim() || null,
-    adSpendColumns: feat.adspend ? sheetColumns : [],
-    dashUsers: feat.dashLogin ? getDashUsers() : []
+    useGMB: feat.gmb, useDashboardLogin: feat.dashLogin
   };
 
   try {
-    const res = await fetch('/api/generate', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:pw,config})});
+    const res = await fetch('/api/generate', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ password: document.getElementById('g-adminPw').value, config })
+    });
     const data = await res.json();
-    if(!data.ok) throw new Error(data.error||'Generation failed');
-
-    const zip = new JSZip();
-    for(const [fn,content] of Object.entries(data.files)) zip.file(fn, content);
-    const blob = await zip.generateAsync({type:'blob'});
-    const url = URL.createObjectURL(blob);
-    const zipName = `${data.slug}-dashboard.zip`;
-
-    document.getElementById('genDownloadBtn').href = url;
-    document.getElementById('genDownloadBtn').download = zipName;
-    document.getElementById('genSuccessTitle').textContent = `${clientName} dashboard ready!`;
-
-    const sources = [src.ga4&&'GA4', src.gsc&&'GSC', src.wc&&'WhatConverts', src.sheets&&`Sheets (${sheetColumns.map(c=>c.label).join(', ')})`, feat.gmb&&'GMB', feat.dashLogin&&'Login'].filter(Boolean);
-    const includedFiles = Object.keys(data.files).filter(f => data.files[f]);
-    document.getElementById('genFileList').innerHTML = `<div class="file-list-title">Sources: ${sources.join(' · ')}</div>${includedFiles.map(f=>`<div class="file-item">${f}</div>`).join('')}`;
-    if (data.files['supabase-setup.sql']) {
-      document.getElementById('genSuccessSub').innerHTML = 'Zip includes <strong>supabase-setup.sql</strong> — run it in Supabase SQL Editor first. Then go to 🔑 Create .env File tab.';
-    }
-    document.getElementById('genForm').style.display='none';
-    document.getElementById('genSuccess').style.display='block';
-
-    const a=document.createElement('a'); a.href=url; a.download=zipName; a.click();
-  } catch(e) {
-    showErr('genErrBar', e.message);
-  }
-  btn.disabled=false;
-  btn.innerHTML='<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> Generate Dashboard';
+    if (!res.ok) throw new Error(data.error || 'Generation failed');
+    
+    generatedFiles = data.files;
+    showDownloadModal(data.files);
+  } catch(e) { showErr(e.message); }
+  
+  btn.disabled = false; btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> Generate Dashboard';
 }
 
-function resetGen() {
-  document.getElementById('genSuccess').style.display='none';
-  document.getElementById('genForm').style.display='block';
+// ── UI Helpers ─────────────────────────────────────────────────────────────
+function showErr(msg) { const el = document.getElementById('genErrBar'); el.textContent = msg; el.style.display = 'block'; setTimeout(() => el.style.display = 'none', 5000); }
+function showDownloadModal(files) {
+  const list = document.getElementById('fileList');
+  list.innerHTML = Object.entries(files).filter(([k,v]) => v).map(([name, content]) => 
+    `<div class="file-item"><span>${name}</span><span style="color:var(--green)">${(content.length/1024).toFixed(1)} KB</span></div>`
+  ).join('');
+  document.getElementById('dlModal').classList.add('show');
+}
+function downloadAll() {
+  if (!generatedFiles) return;
+  // Simple individual downloads for now (can be upgraded to JSZip later)
+  Object.entries(generatedFiles).filter(([k,v]) => v).forEach(([name, content]) => {
+    const blob = new Blob([content], { type: 'text/plain' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click();
+  });
 }
 
-// ── Generate .env ──────────────────────────────────────────────────────────
-function generateEnv() {
-  const clientName = document.getElementById('e-clientName').value.trim();
-  const saEmail = document.getElementById('e-saEmail').value.trim();
-  const rawKey = document.getElementById('e-privateKey').value.trim();
-
-  if(!clientName) { showErr('envErrBar','Client name is required'); return; }
-  if(!saEmail) { showErr('envErrBar','Service account email is required'); return; }
-  if(!rawKey) { showErr('envErrBar','Private key is required'); return; }
-  if(!rawKey.includes('BEGIN PRIVATE KEY')) { showErr('envErrBar','Private key doesn\'t look right — make sure you copied the full key including BEGIN/END lines'); return; }
-
-  const formattedKey = rawKey.replace(/\\n/g,'\n').trim();
-  const slug = toSlug(clientName);
-  const wcToken = document.getElementById('e-wcToken').value.trim();
-  const wcSecret = document.getElementById('e-wcSecret').value.trim();
-  const sbUrl = document.getElementById('e-supabaseUrl').value.trim();
-  const sbKey = document.getElementById('e-supabaseKey').value.trim();
-  const oauthId = document.getElementById('e-oauthId').value.trim();
-  const oauthSecret = document.getElementById('e-oauthSecret').value.trim();
-  const redirectUri = document.getElementById('e-redirectUri').value.trim() || 'http://localhost:3000/auth/callback';
-  const sessionSecret = document.getElementById('e-sessionSecret').value.trim() ||
-    Array.from({length:32},()=>'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'[Math.floor(Math.random()*62)]).join('');
-
-  let env = `# ${clientName} Dashboard\n# Generated by Momentum Digital · ${new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}\n\n`;
-  env += `# Google Service Account\nGOOGLE_SERVICE_ACCOUNT_EMAIL=${saEmail}\nGOOGLE_PRIVATE_KEY="${formattedKey}"\n`;
-  if(wcToken||wcSecret) env += `\n# WhatConverts\n${wcToken?`WHATCONVERTS_TOKEN=${wcToken}\n`:''}${wcSecret?`WHATCONVERTS_SECRET=${wcSecret}\n`:''}`;
-  if(sbUrl||sbKey||oauthId||oauthSecret) {
-    env += `\n# Supabase\n${sbUrl?`SUPABASE_URL=${sbUrl}\n`:''}${sbKey?`SUPABASE_SERVICE_KEY=${sbKey}\n`:''}`;
-    env += `\n# Google OAuth\n${oauthId?`GOOGLE_CLIENT_ID=${oauthId}\n`:''}${oauthSecret?`GOOGLE_CLIENT_SECRET=${oauthSecret}\n`:''}REDIRECT_URI=${redirectUri}\nSESSION_SECRET=${sessionSecret}\n`;
-  } else {
-    env += `\n# Session\nSESSION_SECRET=${sessionSecret}\n`;
-  }
-
-  const blob = new Blob([env],{type:'text/plain'});
-  const url = URL.createObjectURL(blob);
-  document.getElementById('envDownloadBtn').href = url;
-  document.getElementById('envDownloadBtn').download = `${slug}.env`;
-  document.getElementById('envSuccessTitle').textContent = `${clientName} .env ready!`;
-
-  const preview = env.replace(/GOOGLE_PRIVATE_KEY="[\s\S]*?"/m,'GOOGLE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n[hidden for security]\n-----END PRIVATE KEY-----"');
-  document.getElementById('envPreview').textContent = preview;
-
-  document.getElementById('envForm').style.display='none';
-  document.getElementById('envSuccess').style.display='block';
-
-  const a=document.createElement('a'); a.href=url; a.download=`${slug}.env`; a.click();
-}
-
-function resetEnv() {
-  document.getElementById('envSuccess').style.display='none';
-  document.getElementById('envForm').style.display='block';
-}
+// Init
+document.addEventListener('DOMContentLoaded', initColumnMapper);
 </script>
 </body>
 </html>

@@ -1,13 +1,15 @@
-require('dotenv').config();
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
+const bcrypt = require('bcryptjs'); // Added for generator-side hashing
+
+require('dotenv').config();
 
 const app = express();
 app.use(express.json({ limit: '10mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'momentum2026';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'momentum2024';
 
 // ── Auth ───────────────────────────────────────────────────────────────────
 app.post('/api/auth', (req, res) => {
@@ -15,6 +17,16 @@ app.post('/api/auth', (req, res) => {
   if (password === ADMIN_PASSWORD) res.json({ ok: true });
   else res.status(401).json({ error: 'Wrong password' });
 });
+
+// ─ Helpers ────────────────────────────────────────────────────────────────
+function toSlug(str) {
+  return str.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+}
+
+function hexToRgb(hex) {
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  return result ? { r: parseInt(result[1], 16), g: parseInt(result[2], 16), b: parseInt(result[3], 16) } : null;
+}
 
 // ── Generate ───────────────────────────────────────────────────────────────
 app.post('/api/generate', (req, res) => {
@@ -32,7 +44,7 @@ app.post('/api/generate', (req, res) => {
       qualifiedLabel,
       supabaseUrl, redirectUri,
       useGA4, useGSC, useWC, useSheets, useDocs, useQualified, useAdSpend,
-      useGMB, useDashboardLogin, gmbTab, gmbSheetId, adSpendColumns, dashUsers
+      useGMB, useDashboardLogin, gmbTab, gmbSheetId, dashUsers
     } = config;
 
     const slug     = toSlug(clientName);
@@ -42,220 +54,76 @@ app.post('/api/generate', (req, res) => {
     const qlabel   = qualifiedLabel || 'Qualified Leads';
     const agency   = agencyLabel || 'Momentum Digital';
 
-    // ── index.html swaps ──────────────────────────────────────────────────
-
-    // Title
-    indexHtml = indexHtml.replace(
-      '<title>Penn Pain· Analytics by Momentum Digital</title>',
-      `<title>${clientName} · Analytics by ${agency}</title>`
-    );
-
-    // Brand color
+    // ── index.html swaps ─────────────────────────────────────────────────
+    indexHtml = indexHtml.replace('<title>Penn Pain· Analytics by Momentum Digital</title>', `<title>${clientName} · Analytics by ${agency}</title>`);
     indexHtml = indexHtml.replace(/--green: #3a8fd4;/, `--green: ${brandColor};`);
-    indexHtml = indexHtml.replace(/rgba\(58,143,212,0\.12\)/g, `rgba(${rgbStr},0.12)`);
-    indexHtml = indexHtml.replace(/rgba\(58,143,212,0\.07\)/g, `rgba(${rgbStr},0.07)`);
-    indexHtml = indexHtml.replace(/rgba\(58,143,212,0\.06\)/g, `rgba(${rgbStr},0.06)`);
-    indexHtml = indexHtml.replace(/rgba\(58,143,212,0\.2\)/g,  `rgba(${rgbStr},0.2)`);
-    indexHtml = indexHtml.replace(/rgba\(58,143,212,0\.3\)/g,  `rgba(${rgbStr},0.3)`);
-    indexHtml = indexHtml.replace(/#3a8fd4/g, brandColor);
-
-    // Logo
-    const { logoInvert = true } = config;
-    if (logoB64) {
-      const filterStyle = logoInvert ? 'filter:brightness(0) invert(1)' : '';
-      indexHtml = indexHtml.replace(
-        /<img src="data:image\/webp;base64,[^"]*" alt="Momentum Digital"[^>]*>/,
-        `<img src="${logoB64}" alt="${clientName}" style="max-height:36px;max-width:160px;height:auto;display:block;${filterStyle}">`
-      );
-    }
-
-    // Client name, website, initials
-    indexHtml = indexHtml.replace(/Penn Pain Physicians/g, clientName);
-    indexHtml = indexHtml.replace(/Penn Pain·/g, clientName + '·');
-    indexHtml = indexHtml.replace(/PennPain(?!\.com)/g, initials);
-    indexHtml = indexHtml.replace(/https:\/\/pennpain\.com/g, clientWebsite || '#');
-    indexHtml = indexHtml.replace(/pennpain\.com(?!\/search)/g, clientWebsite ? clientWebsite.replace(/https?:\/\//, '') : '');
-    indexHtml = indexHtml.replace(/GA4 · 486245473/g, useGA4 ? `GA4 · ${ga4PropertyId}` : '');
-    indexHtml = indexHtml.replace(/GSC · pennpain\.com/g, useGSC ? `GSC · ${gscSiteUrl}` : '');
-
-    // Agency label
-    indexHtml = indexHtml.replace(/%%AGENCY_LABEL%%/g, agency);
+    indexHtml = indexHtml.replace(/--green2: rgba\(58,143,212,0\.12\);/, `--green2: rgba(${rgbStr},0.12);`);
     indexHtml = indexHtml.replace(/%%CLIENT_NAME%%/g, clientName);
-    if (agency !== 'Momentum Digital') {
-      indexHtml = indexHtml.replace(/Momentum Digital/g, agency);
-    }
-
-    // GA4 property ID
-    if (ga4PropertyId) indexHtml = indexHtml.replace(/486245473/g, ga4PropertyId);
-
-    // Qualified leads label
-    indexHtml = indexHtml.replace(/%%QUALIFIED_LABEL%%/g, qlabel);
-
-    // Colors array
-    indexHtml = indexHtml.replace(
-      "const COLORS = ['#3a8fd4',",
-      `const COLORS = ['${brandColor}',`
-    );
-
-    // ── GMB section ───────────────────────────────────────────────────────
-    if (useGMB) {
-      indexHtml = indexHtml.replace('%%GMB_NAV%%', `<button class="nav-item" onclick="showSection('gmb',this)" id="nav-gmb">
-      <svg class="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 1C5.2 1 3 3.2 3 6c0 3.9 5 9 5 9s5-5.1 5-9c0-2.8-2.2-5-5-5zm0 6.8C6.8 7.8 5.8 6.8 5.8 5.6S6.8 3.5 8 3.5s2.2 1 2.2 2.2S9.2 7.8 8 7.8z"/></svg>
-      Google Business
-    </button>`);
-
-      indexHtml = indexHtml.replace('%%GMB_SECTION%%', `<div id="sec-gmb" style="display:none">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;padding:1rem 1.25rem;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);animation:fadeUp 0.3s ease both">
-          <div style="display:flex;align-items:center;gap:14px">
-            <div style="width:42px;height:42px;border-radius:10px;background:rgba(66,133,244,0.12);display:flex;align-items:center;justify-content:center;font-size:20px">📍</div>
-            <div><div style="font-size:15px;font-weight:600;letter-spacing:-0.2px">Google Business Profile</div>
-            <div style="font-size:11px;color:var(--muted);font-family:var(--font-mono);margin-top:3px">${clientName} · Both Locations Combined</div></div>
-          </div>
-          <span class="pill" style="background:rgba(66,133,244,0.12);color:#4285f4">Agency Analytics</span>
-        </div>
-        <div class="section-label">Performance</div>
-        <div class="stats-grid" style="margin-bottom:1.5rem">
-          <div class="chart-card" style="padding:1.25rem"><div style="font-size:10.5px;font-weight:500;color:var(--muted);letter-spacing:0.06em;text-transform:uppercase;font-family:var(--font-mono);margin-bottom:10px">Impressions</div><div style="font-family:var(--font-display);font-size:28px;font-weight:600;letter-spacing:-0.3px;color:#4285f4" id="gmb-impressions">–</div><div style="font-size:11px;color:var(--muted);font-family:var(--font-mono);margin-top:6px">Search + Maps views</div></div>
-          <div class="chart-card" style="padding:1.25rem"><div style="font-size:10.5px;font-weight:500;color:var(--muted);letter-spacing:0.06em;text-transform:uppercase;font-family:var(--font-mono);margin-bottom:10px">Interactions</div><div style="font-family:var(--font-display);font-size:28px;font-weight:600;letter-spacing:-0.3px;color:var(--green)" id="gmb-interactions">–</div><div style="font-size:11px;color:var(--muted);font-family:var(--font-mono);margin-top:6px">Total profile actions</div></div>
-          <div class="chart-card" style="padding:1.25rem"><div style="font-size:10.5px;font-weight:500;color:var(--muted);letter-spacing:0.06em;text-transform:uppercase;font-family:var(--font-mono);margin-bottom:10px">Calls</div><div style="font-family:var(--font-display);font-size:28px;font-weight:600;letter-spacing:-0.3px;color:var(--green)" id="gmb-calls">–</div><div style="font-size:11px;color:var(--muted);font-family:var(--font-mono);margin-top:6px">Phone call clicks</div></div>
-          <div class="chart-card" style="padding:1.25rem"><div style="font-size:10.5px;font-weight:500;color:var(--muted);letter-spacing:0.06em;text-transform:uppercase;font-family:var(--font-mono);margin-bottom:10px">Direction Requests</div><div style="font-family:var(--font-display);font-size:28px;font-weight:600;letter-spacing:-0.3px;color:var(--amber)" id="gmb-directions">–</div><div style="font-size:11px;color:var(--muted);font-family:var(--font-mono);margin-top:6px">Get directions clicks</div></div>
-          <div class="chart-card" style="padding:1.25rem"><div style="font-size:10.5px;font-weight:500;color:var(--muted);letter-spacing:0.06em;text-transform:uppercase;font-family:var(--font-mono);margin-bottom:10px">Website Clicks</div><div style="font-family:var(--font-display);font-size:28px;font-weight:600;letter-spacing:-0.3px;color:#4285f4" id="gmb-website-clicks">–</div><div style="font-size:11px;color:var(--muted);font-family:var(--font-mono);margin-top:6px">Visit website clicks</div></div>
-        </div>
-        <div class="chart-row-2" style="margin-bottom:1.5rem">
-          <div class="chart-card"><div class="section-header"><div><div class="section-title">Search vs Maps</div><div class="section-sub">Impressions by platform</div></div><span class="pill" style="background:rgba(66,133,244,0.12);color:#4285f4">GBP</span></div><div id="gmbSearchMapsLegend" class="legend-row" style="margin-bottom:8px"></div><div style="position:relative;height:200px"><canvas id="gmbSearchMapsChart"></canvas></div></div>
-          <div class="chart-card"><div class="section-header"><div><div class="section-title">Mobile vs Desktop</div><div class="section-sub">Impressions by device</div></div><span class="pill" style="background:rgba(66,133,244,0.12);color:#4285f4">GBP</span></div><div id="gmbDeviceLegend" class="legend-row" style="margin-bottom:8px"></div><div style="position:relative;height:200px"><canvas id="gmbDeviceChart"></canvas></div></div>
-        </div>
-        <div class="chart-card" style="margin-bottom:1.5rem"><div class="section-header"><div><div class="section-title">Impressions Over Time</div><div class="section-sub">Daily GBP profile views</div></div><span class="pill" style="background:rgba(66,133,244,0.12);color:#4285f4">GBP</span></div><div class="legend-row" style="margin-bottom:8px"><div class="legend-item"><div class="legend-swatch" style="background:#4285f4"></div>Impressions</div><div class="legend-item"><div class="legend-swatch" style="background:var(--green)"></div>Interactions</div></div><div style="position:relative;height:220px"><canvas id="gmbImpressionsChart"></canvas></div></div>
-        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 14px;font-size:12px;color:var(--muted);font-family:var(--font-mono);margin-bottom:1.5rem">💡 Data from Agency Analytics Google Sheets add-on · Refresh the gmb_data sheet tab to update</div>
-      </div>`);
-
-      indexHtml = indexHtml.replace('%%GMB_FETCH%%', `fetch(\`/api/gmb?start_date=\${start}&end_date=\${end}\`).then(r=>r.json()).catch(()=>({rows:[],totals:{}}))`);
+    indexHtml = indexHtml.replace(/%%AGENCY_LABEL%%/g, agency);
+    indexHtml = indexHtml.replace(/%%CLIENT_INITIALS%%/g, initials);
+    
+    if (logoB64) {
+      indexHtml = indexHtml.replace(/<div class="logo-mark">.*?<\/div>/s, `<img src="${logoB64}" style="width:32px;height:32px;border-radius:9px;object-fit:cover">`);
     } else {
-      indexHtml = indexHtml.replace('%%GMB_NAV%%', '');
-      indexHtml = indexHtml.replace('%%GMB_SECTION%%', '');
-      indexHtml = indexHtml.replace('%%GMB_FETCH%%', `Promise.resolve({rows:[],totals:{}})`);
+      indexHtml = indexHtml.replace(/%%CLIENT_INITIALS%%/g, initials);
     }
 
-    // ── Sheet KPI cards (dynamic) ─────────────────────────────────────────
-    if (useSheets && sheetColumns && sheetColumns.length > 0) {
-      const kpiCardsHtml = `<div style="display:grid;grid-template-columns:repeat(${Math.min(sheetColumns.length, 4)},1fr);gap:12px;margin-bottom:1.5rem">\n` +
-        sheetColumns.map(col => `          <div class="chart-card" style="padding:1rem;border-color:${col.color}33">
-            <div style="font-size:10px;color:var(--muted);font-family:var(--font-mono);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px">${col.label}</div>
-            <div style="font-family:var(--font-display);font-size:32px;font-weight:700;color:${col.color};letter-spacing:-0.5px" id="sheet-kpi-${col.key}">–</div>
-            <div style="font-size:11px;color:var(--muted);font-family:var(--font-mono);margin-top:4px">from sheet · date filtered</div>
-          </div>`).join('\n') +
-        '\n        </div>';
-      indexHtml = indexHtml.replace('        %%SHEET_KPI_CARDS%%', kpiCardsHtml);
+    // Feature visibility swaps
+    const toggleSection = (id, show) => {
+      if (!show) indexHtml = indexHtml.replace(new RegExp(`<div class="feature-row"[\\s\\S]*?id="tog-${id}"[\\s\\S]*?</div>\\s*<div class="sub-fields"[\\s\\S]*?id="sub-${id}"[\\s\\S]*?</div>`, 'm'), '');
+    };
+    if (!useGA4) toggleSection('ga4', false);
+    if (!useGSC) toggleSection('gsc', false);
+    if (!useWC) toggleSection('wc', false);
+    if (!useSheets) toggleSection('sheets', false);
+    if (!useAdSpend) { /* Ad spend is now just a feature flag, UI handled in features */ }
+    if (!useQualified) toggleSection('qualified', false);
+    if (!useGMB) toggleSection('gmb', false);
+    if (!useDashboardLogin) toggleSection('dashLogin', false);
+    if (!useDocs) toggleSection('docs', false);
 
-      const kpiJs = sheetColumns.map(col =>
-        `    const el_${col.key} = document.getElementById('sheet-kpi-${col.key}');\n` +
-        `    if (el_${col.key}) el_${col.key}.textContent = adSpend.totals ? ` +
-        `(${col.type === 'currency' ? `'$' + (adSpend.totals['${col.key}'] || 0).toLocaleString()` : `fmt(adSpend.totals['${col.key}'] || 0)`}) : '–';`
-      ).join('\n');
-      indexHtml = indexHtml.replace('    %%SHEET_KPI_JS%%', kpiJs);
-    } else {
-      indexHtml = indexHtml.replace('        %%SHEET_KPI_CARDS%%', '');
-      indexHtml = indexHtml.replace('    %%SHEET_KPI_JS%%', '');
-    }
-
-    // Remove unused sections
-    if (!useWC) {
-      indexHtml = indexHtml.replace('<span class="nav-badge" id="nb-conversions">–</span>', '');
-    }
-    if (!useDocs) {
-      indexHtml = indexHtml.replace(/id="nav-documents"[\s\S]*?<\/button>\s*\n/, '');
-    }
-    if (!useQualified) {
-      indexHtml = indexHtml.replace(
-        /<!-- NP Appointments section -->[\s\S]*?<div style="height:1px;background:var\(--border\)/,
-        '<div style="height:1px;background:var(--border)'
-      );
-    }
-
-    // ── server.js swaps ───────────────────────────────────────────────────
+    // ─ server.js swaps ───────────────────────────────────────────────────
     serverJs = serverJs.replace("'properties/486245473'", `'properties/${ga4PropertyId || ''}'`);
     serverJs = serverJs.replace("'sc-domain:pennpain.com'", `'${gscSiteUrl || ''}'`);
     serverJs = serverJs.replace("'148479'", `'${wcProfileId || ''}'`);
     serverJs = serverJs.replace("'1cXnqHBu9OJXA-TIemxTAm8tkKNDOMbY8hWgWlpbi3P4'", `'${sheetId || ''}'`);
     serverJs = serverJs.replace("'dashboard_data'", `'${sheetTab || 'dashboard_data'}'`);
     serverJs = serverJs.replace(/%%SLUG%%/g, slug);
-    // GMB tab name and sheet ID
+    
     const gmbTabName = gmbTab || 'gmb_data';
     serverJs = serverJs.replace("'gmb_data'", `'${gmbTabName}'`);
     indexHtml = indexHtml.replace(/gmb_data sheet tab/g, `${gmbTabName} sheet tab`);
-    indexHtml = indexHtml.replace(/gmb_data tab/g, `${gmbTabName} tab`);
-    // GMB separate sheet ID (if different from main sheet)
+    
     if (gmbSheetId) {
-      serverJs = serverJs.replace(
-        "range: 'gmb_data!A:J'",
-        `spreadsheetId: '${gmbSheetId}',
-      range: '${gmbTabName}!A:J'`
-      );
-      // Also update the GMB endpoint to use its own sheet ID
-      serverJs = serverJs.replace(
-        "const GMB_SHEET_ID = SHEET_ID;",
-        `const GMB_SHEET_ID = '${gmbSheetId}';`
-      );
+      serverJs = serverJs.replace("range: 'gmb_data!A:J'", `spreadsheetId: '${gmbSheetId}',\n      range: '${gmbTabName}!A:J'`);
+      serverJs = serverJs.replace("const GMB_SHEET_ID = SHEET_ID;", `const GMB_SHEET_ID = '${gmbSheetId}';`);
     } else {
       serverJs = serverJs.replace("const GMB_SHEET_ID = SHEET_ID;", '');
       serverJs = serverJs.replace("spreadsheetId: GMB_SHEET_ID,", `spreadsheetId: SHEET_ID,`);
     }
+
     serverJs = serverJs.replace(/%%AGENCY_LABEL%%/g, agency);
     serverJs = serverJs.replace(/%%CLIENT_NAME%%/g, clientName);
+    serverJs = serverJs.replace(/%%QUALIFIED_LABEL%%/g, qlabel);
 
-    // Inject SHEET_COLUMNS config
-    const colsJson = JSON.stringify(
-      (sheetColumns || []).map(c => ({ key: c.key, label: c.label, color: c.color, type: c.type || 'number' }))
-    );
-    serverJs = serverJs.replace('%%QUALIFIED_LABEL%%', qlabel);
-
-    // ── Ad Spend Columns — override sheetColumns if provided ────────────────
-    const finalSheetColumns = (useAdSpend && adSpendColumns && adSpendColumns.length > 0)
-      ? adSpendColumns
-      : sheetColumns || [];
-    const finalColsJson = JSON.stringify(finalSheetColumns);
+    // Inject SHEET_COLUMNS config (This now includes ad_spend if mapped!)
+    const finalColsJson = JSON.stringify(sheetColumns || []);
     serverJs = serverJs.replace('%%SHEET_COLUMNS%%', finalColsJson);
 
-    // ── Conditional KPI cards ─────────────────────────────────────────────
-    const wcLeadsCard = useWC
-      ? `{id:'wc-leads',label:'Total Leads',value:fmt(wcTotal),color:'#f59e0b',noComp:true,sub:true,path:'M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z',sparkData:(ts.rows||[]).map((_,i)=>i),subLabel:'WhatConverts · all leads'},`
-      : '';
-    const npApptsCard = (useWC && useQualified)
-      ? `{id:'np-appts',label:'${qlabel}',value:fmt(cachedData.npData?.total||0),color:'#00d084',noComp:true,sub:true,path:'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z',sparkData:(ts.rows||[]).map((_,i)=>i),subLabel:'WhatConverts · ${qlabel}'},`
-      : '';
-    const adSpendCard = useSheets
-      ? `{id:'ad-spend',label:'Ad Spend',value:'$'+(cachedData.adSpendData?.total||0).toLocaleString(),color:'#f87171',noComp:true,sub:true,path:'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z',sparkData:(cachedData.adSpendData?.rows||[]).map(r=>r.ad_spend),subLabel:'Google Ads · from sheet'},`
-      : '';
-
-    indexHtml = indexHtml.replace('    %%WC_LEADS_CARD%%', '    ' + wcLeadsCard);
-    indexHtml = indexHtml.replace('    %%NP_APPTS_CARD%%', '    ' + npApptsCard);
-    indexHtml = indexHtml.replace('    %%AD_SPEND_CARD%%', '    ' + adSpendCard);
-
     // Remove unused endpoints
-    if (!useWC) {
-      serverJs = serverJs.replace(/\/\/ ── WhatConverts proxy[\s\S]*?(?=\/\/ ── WhatConverts NP|\/\/ ── Google Sheets|\/\/ ── Google Business|\/\/ ── Dashboard Auth|\/\/ ── Review Auth|const PORT)/, '');
-    }
-    if (!useQualified) {
-      serverJs = serverJs.replace(/\/\/ ── WhatConverts NP Appointments[\s\S]*?(?=\/\/ ── Google Sheets|\/\/ ── Google Business|\/\/ ── Dashboard Auth|\/\/ ── Review Auth|const PORT)/, '');
-    }
-    if (!useSheets) {
-      serverJs = serverJs.replace(/\/\/ ── Google Sheets[\s\S]*?(?=\/\/ ── Google Business|\/\/ ── Dashboard Auth|\/\/ ── Review Auth|const PORT)/, '');
-    }
-    if (!useGMB) {
-      serverJs = serverJs.replace(/\/\/ ── Google Business Profile[\s\S]*?(?=\/\/ ── Dashboard Auth|\/\/ ── Review Auth|const PORT)/, '');
-    }
-    if (!useDashboardLogin) {
-      serverJs = serverJs.replace(/\/\/ ── Dashboard Auth[\s\S]*?(?=\/\/ ── Review Auth|const PORT)/, '');
-    }
+    if (!useWC) serverJs = serverJs.replace(/\/\/ ── WhatConverts proxy[\s\S]*?(?=\/\/ ── WhatConverts NP|\/\/ ── Google Sheets|\/\/ ── Google Business|\/\/ ── Dashboard Auth|\/\/ ── Review Auth|const PORT)/, '');
+    if (!useQualified) serverJs = serverJs.replace(/\/\/ ── WhatConverts NP Appointments[\s\S]*?(?=\/\/ ── Google Sheets|\/\/ ── Google Business|\/\/ ─ Dashboard Auth|\/\/ ── Review Auth|const PORT)/, '');
+    if (!useSheets) serverJs = serverJs.replace(/\/\/ ── Google Sheets[\s\S]*?(?=\/\/ ── Google Business|\/\/ ── Dashboard Auth|\/\/ ─ Review Auth|const PORT)/, '');
+    if (!useGMB) serverJs = serverJs.replace(/\/\/ ── Google Business Profile[\s\S]*?(?=\/\/ ── Dashboard Auth|\/\/ ── Review Auth|const PORT)/, '');
+    if (!useDashboardLogin) serverJs = serverJs.replace(/\/\/ ── Dashboard Auth[\s\S]*?(?=\/\/ ── Review Auth|const PORT)/, '');
     if (!useDocs) {
       serverJs = serverJs.replace(/\/\/ ── Review Auth[\s\S]*?(?=const PORT)/, '');
       serverJs = serverJs.replace(/\/\/ ── Documents API[\s\S]*?(?=const PORT)/, '');
     }
 
-    // Update console log
     serverJs = serverJs.replace('PennPain Dashboard running', `${clientName} Dashboard running`);
 
-    // ── Strip unused requires based on enabled features ───────────────────
+    // ── Strip unused requires ─────────────────────────────────────────────
     const needsSupabase = useDocs || useDashboardLogin;
     const needsJwt = useDocs || useDashboardLogin;
     const needsCookieParser = useDocs || useDashboardLogin;
@@ -287,7 +155,7 @@ app.post('/api/generate', (req, res) => {
     if (needsJwt) deps["jsonwebtoken"] = "^9.0.2";
     if (needsCookieParser) deps["cookie-parser"] = "^1.4.6";
     if (needsSupabase) deps["@supabase/supabase-js"] = "^2.38.0";
-    if (needsBcrypt) deps["bcryptjs"] = "^2.4.3";
+    if (needsBcrypt) deps["bcryptjs"] = "^2.4.3"; // FIXED: Moved inside dependencies
 
     const packageJson = JSON.stringify({
       name: `${slug}-dashboard`,
@@ -297,7 +165,7 @@ app.post('/api/generate', (req, res) => {
       dependencies: deps
     }, null, 2);
 
-    // ── vercel.json ───────────────────────────────────────────────────────
+    // ─ vercel.json ───────────────────────────────────────────────────────
     const vercelJson = JSON.stringify({
       version: 2,
       builds: [{ src: "server.js", use: "@vercel/node" }],
@@ -320,8 +188,6 @@ app.post('/api/generate', (req, res) => {
     let supabaseSql = `-- ${clientName} Dashboard — Supabase Setup\n-- Run this in the Supabase SQL Editor\n\n`;
 
     if (useDashboardLogin) {
-      // Generate bcrypt hashes for each user
-      const bcrypt = require('bcryptjs');
       const userInserts = (dashUsers || []).map(u => {
         const hash = bcrypt.hashSync(u.password, 10);
         const name = (u.name || u.email).replace(/'/g, "''");
@@ -343,7 +209,7 @@ app.post('/api/generate', (req, res) => {
     // ── Sheet structure guide ─────────────────────────────────────────────
     let sheetGuide = '';
     if (useSheets && sheetColumns?.length) {
-      const colLetters = sheetColumns.map((c, i) => `| ${String.fromCharCode(68 + i)} | ${c.label} | ${c.type} |`).join('\n');
+      const colLetters = sheetColumns.map((c, i) => `| ${c.column_letter || String.fromCharCode(68 + i)} | ${c.label} | ${c.type} |`).join('\n');
       sheetGuide = `\n## Google Sheet Structure (${sheetTab})\n\n| Column | Label | Type |\n|--------|-------|------|\n| A | Date (e.g. 8/1-8/6) | text |\n| B | Week Start (YYYY-MM-DD) | date |\n| C | Week End (YYYY-MM-DD) | date |\n${colLetters}\n\nNewest row at top (row 2). Dashboard filters by Week End date.\n`;
     }
 
@@ -352,53 +218,9 @@ app.post('/api/generate', (req, res) => {
     }
 
     // ── README ────────────────────────────────────────────────────────────
-    const readme = `# ${clientName} Analytics Dashboard
+    const readme = `# ${clientName} Analytics Dashboard\n\nGenerated by ${agency} Dashboard Generator\n\n## Quick Start\n\n\`\`\`bash\nnpm install\nnode server.js\n\`\`\`\n\nOpen: http://localhost:3000\n\n## Vercel Deployment\n\n1. Push this folder to a new GitHub repo\n2. Import repo in Vercel — Framework: **Other**\n3. Add all environment variables from \`.env.example\`\n4. Deploy\n\n## Data Sources\n${useGA4 ? `- ✅ Google Analytics 4 (Property: ${ga4PropertyId})` : '- ❌ GA4 not enabled'}\n${useGSC ? `- ✅ Search Console (${gscSiteUrl})` : '- ❌ GSC not enabled'}\n${useWC ? `- ✅ WhatConverts (Profile: ${wcProfileId})` : '- ❌ WhatConverts not enabled'}\n${useSheets ? `- ✅ Google Sheets (Tab: ${sheetTab})` : '- ❌ Google Sheets not enabled'}\n${useGMB ? '- ✅ Google Business Profile (via Sheets gmb_data tab)' : '- ❌ GBP not enabled'}\n${useDocs ? '- ✅ Document Review Portal' : '-  Document Review not enabled'}\n${useDashboardLogin ? '- ✅ Dashboard Login (email/password)' : '- ❌ No dashboard login (public)'}\n${sheetGuide}\n## Service Account Access\n\nGrant \`GOOGLE_SERVICE_ACCOUNT_EMAIL\` access to:\n- GA4: Admin → Account Access Management → Viewer\n- GSC: Settings → Users and permissions → Full\n- Google Sheet: Share → Viewer\n\n---\nGenerated by ${agency} · ${new Date().toLocaleDateString()}\n`;
 
-Generated by ${agency} Dashboard Generator
-
-## Quick Start
-
-\`\`\`bash
-npm install
-node server.js
-\`\`\`
-
-Open: http://localhost:3000
-
-## Vercel Deployment
-
-1. Push this folder to a new GitHub repo
-2. Import repo in Vercel — Framework: **Other**
-3. Add all environment variables from \`.env.example\`
-4. Deploy
-
-## Data Sources
-${useGA4 ? `- ✅ Google Analytics 4 (Property: ${ga4PropertyId})` : '- ❌ GA4 not enabled'}
-${useGSC ? `- ✅ Search Console (${gscSiteUrl})` : '- ❌ GSC not enabled'}
-${useWC ? `- ✅ WhatConverts (Profile: ${wcProfileId})` : '- ❌ WhatConverts not enabled'}
-${useSheets ? `- ✅ Google Sheets (Tab: ${sheetTab})` : '- ❌ Google Sheets not enabled'}
-${useGMB ? '- ✅ Google Business Profile (via Sheets gmb_data tab)' : '- ❌ GBP not enabled'}
-${useDocs ? '- ✅ Document Review Portal' : '- ❌ Document Review not enabled'}
-${useDashboardLogin ? '- ✅ Dashboard Login (email/password)' : '- ❌ No dashboard login (public)'}
-${sheetGuide}
-## Service Account Access
-
-Grant \`GOOGLE_SERVICE_ACCOUNT_EMAIL\` access to:
-- GA4: Admin → Account Access Management → Viewer
-- GSC: Settings → Users and permissions → Full
-- Google Sheet: Share → Viewer
-
----
-Generated by ${agency} · ${new Date().toLocaleDateString()}
-`;
-
-    const gitignore = `# Environment & secrets
-.env
-private-key.pem
-*-service-account*.json
-node_modules/
-layout.json
-`;
+    const gitignore = `# Environment & secrets\n.env\nprivate-key.pem\n*-service-account*.json\nnode_modules/\nlayout.json\n`;
 
     res.json({
       ok: true,
@@ -421,15 +243,5 @@ layout.json
   }
 });
 
-function toSlug(name) {
-  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-}
-
-function hexToRgb(hex) {
-  const r = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-  return r ? { r: parseInt(r[1],16), g: parseInt(r[2],16), b: parseInt(r[3],16) } : null;
-}
-
-const PORT = process.env.PORT || 4000;
-app.listen(PORT, () => console.log(`\n✅ Generator running at http://localhost:${PORT}\n`));
-module.exports = app;
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`Momentum Generator running on port ${PORT}`));
