@@ -54,18 +54,85 @@ app.post('/api/generate', (req, res) => {
     const qlabel   = qualifiedLabel || 'Qualified Leads';
     const agency   = agencyLabel || 'Momentum Digital';
 
-    // ── index.html swaps ──────────────────────────────────────────────────
+    // ── index.html swaps ─────────────────────────────────────────────────
     indexHtml = indexHtml.replace('<title>Penn Pain· Analytics by Momentum Digital</title>', `<title>${clientName} · Analytics by ${agency}</title>`);
     indexHtml = indexHtml.replace(/--green: #3a8fd4;/, `--green: ${brandColor};`);
     indexHtml = indexHtml.replace(/--green2: rgba\(58,143,212,0\.12\);/, `--green2: rgba(${rgbStr},0.12);`);
-    indexHtml = indexHtml.replace(/%%CLIENT_NAME%%/g, clientName);
     indexHtml = indexHtml.replace(/%%AGENCY_LABEL%%/g, agency);
+    indexHtml = indexHtml.replace(/%%CLIENT_NAME%%/g, clientName);
     indexHtml = indexHtml.replace(/%%CLIENT_INITIALS%%/g, initials);
+    indexHtml = indexHtml.replace(/%%QUALIFIED_LABEL%%/g, qlabel);
     
     if (logoB64) {
       indexHtml = indexHtml.replace(/<div class="logo-mark">.*?<\/div>/s, `<img src="${logoB64}" style="width:32px;height:32px;border-radius:9px;object-fit:cover">`);
+    }
+
+    // GMB Navigation
+    if (useGMB) {
+      indexHtml = indexHtml.replace(/%%GMB_NAV%%/g, `
+        <div class="nav-section">Local SEO</div>
+        <button class="nav-item" onclick="showSection('gmb')">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+            <circle cx="12" cy="10" r="3"/>
+          </svg>
+          Google Business
+        </button>
+      `);
+      
+      indexHtml = indexHtml.replace(/%%GMB_SECTION%%/g, `
+        <div id="gmbSection" class="chart-card" style="display:none">
+          <div class="section-header">
+            <div>
+              <div class="section-title">Google Business Profile</div>
+              <div class="section-sub">Local search performance and interactions</div>
+            </div>
+          </div>
+          <div class="gsc-metrics">
+            <div class="mini-stat">
+              <div class="mini-stat-icon" style="background:rgba(66,133,244,0.12);color:#4285f4">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/></svg>
+              </div>
+              <div><div class="mini-stat-label">Impressions</div><div class="mini-stat-value" id="gmb-impressions">-</div></div>
+            </div>
+            <div class="mini-stat">
+              <div class="mini-stat-icon" style="background:rgba(58,143,212,0.12);color:var(--green)">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+              </div>
+              <div><div class="mini-stat-label">Interactions</div><div class="mini-stat-value" id="gmb-interactions">-</div></div>
+            </div>
+          </div>
+        </div>
+      `);
     } else {
-      indexHtml = indexHtml.replace(/%%CLIENT_INITIALS%%/g, initials);
+      indexHtml = indexHtml.replace(/%%GMB_NAV%%/g, '');
+      indexHtml = indexHtml.replace(/%%GMB_SECTION%%/g, '');
+    }
+
+    // Sheet KPI Cards
+    if (useSheets && sheetColumns && sheetColumns.length > 0) {
+      const kpiCards = sheetColumns.map(col => `
+        <div class="stat-card">
+          <div class="stat-header">
+            <div class="stat-label">${col.label.toUpperCase()}</div>
+            <div class="stat-icon" style="background:${col.color}20;color:${col.color}">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="12" y1="20" x2="12" y2="10"/>
+                <line x1="18" y1="20" x2="18" y2="4"/>
+                <line x1="6" y1="20" x2="6" y2="16"/>
+              </svg>
+            </div>
+          </div>
+          <div class="stat-value" id="sheet-${col.key}-value">-</div>
+          <div class="stat-footer">
+            <span class="stat-delta neu">This period</span>
+          </div>
+        </div>
+      `).join('');
+      
+      indexHtml = indexHtml.replace(/%%SHEET_KPI_CARDS%%/g, kpiCards);
+    } else {
+      indexHtml = indexHtml.replace(/%%SHEET_KPI_CARDS%%/g, '');
     }
 
     // Feature visibility swaps
@@ -81,7 +148,7 @@ app.post('/api/generate', (req, res) => {
     if (!useDashboardLogin) toggleSection('dashLogin', false);
     if (!useDocs) toggleSection('docs', false);
 
-    // ─ server.js swaps ───────────────────────────────────────────────────
+    //  server.js swaps ───────────────────────────────────────────────────
     serverJs = serverJs.replace("'properties/486245473'", `'properties/${ga4PropertyId || ''}'`);
     serverJs = serverJs.replace("'sc-domain:pennpain.com'", `'${gscSiteUrl || ''}'`);
     serverJs = serverJs.replace("'148479'", `'${wcProfileId || ''}'`);
@@ -91,7 +158,6 @@ app.post('/api/generate', (req, res) => {
     
     const gmbTabName = gmbTab || 'gmb_data';
     serverJs = serverJs.replace("'gmb_data'", `'${gmbTabName}'`);
-    indexHtml = indexHtml.replace(/gmb_data sheet tab/g, `${gmbTabName} sheet tab`);
     
     if (gmbSheetId) {
       serverJs = serverJs.replace("range: 'gmb_data!A:J'", `spreadsheetId: '${gmbSheetId}',\n      range: '${gmbTabName}!A:J'`);
@@ -105,15 +171,15 @@ app.post('/api/generate', (req, res) => {
     serverJs = serverJs.replace(/%%CLIENT_NAME%%/g, clientName);
     serverJs = serverJs.replace(/%%QUALIFIED_LABEL%%/g, qlabel);
 
-    // Inject SHEET_COLUMNS config (Now uses custom mapped columns)
+    // Inject SHEET_COLUMNS config
     const finalColsJson = JSON.stringify(sheetColumns || []);
     serverJs = serverJs.replace('%%SHEET_COLUMNS%%', finalColsJson);
 
     // Remove unused endpoints
     if (!useWC) serverJs = serverJs.replace(/\/\/ ─ WhatConverts proxy[\s\S]*?(?=\/\/ ── WhatConverts NP|\/\/ ── Google Sheets|\/\/ ── Google Business|\/\/ ── Dashboard Auth|\/\/ ── Review Auth|const PORT)/, '');
-    if (!useQualified) serverJs = serverJs.replace(/\/\/ ── WhatConverts NP Appointments[\s\S]*?(?=\/\/ ── Google Sheets|\/\/ ── Google Business|\/\/ ── Dashboard Auth|\/\/ ── Review Auth|const PORT)/, '');
-    if (!useSheets) serverJs = serverJs.replace(/\/\/ ── Google Sheets[\s\S]*?(?=\/\/ ── Google Business|\/\/ ── Dashboard Auth|\/\/ ── Review Auth|const PORT)/, '');
-    if (!useGMB) serverJs = serverJs.replace(/\/\/ ── Google Business Profile[\s\S]*?(?=\/\/ ── Dashboard Auth|\/\/ ─ Review Auth|const PORT)/, '');
+    if (!useQualified) serverJs = serverJs.replace(/\/\/ ── WhatConverts NP Appointments[\s\S]*?(?=\/\/ ── Google Sheets|\/\/ ─ Google Business|\/\/ ── Dashboard Auth|\/\/ ── Review Auth|const PORT)/, '');
+    if (!useSheets) serverJs = serverJs.replace(/\/\/ ── Google Sheets[\s\S]*?(?=\/\/ ── Google Business|\/\/ ─ Dashboard Auth|\/\/ ── Review Auth|const PORT)/, '');
+    if (!useGMB) serverJs = serverJs.replace(/\/\/ ── Google Business Profile[\s\S]*?(?=\/\/ ── Dashboard Auth|\/\/ ── Review Auth|const PORT)/, '');
     if (!useDashboardLogin) serverJs = serverJs.replace(/\/\/ ── Dashboard Auth[\s\S]*?(?=\/\/ ── Review Auth|const PORT)/, '');
     if (!useDocs) {
       serverJs = serverJs.replace(/\/\/ ── Review Auth[\s\S]*?(?=const PORT)/, '');
@@ -143,7 +209,7 @@ app.post('/api/generate', (req, res) => {
     if (!needsGoogleapis) serverJs = serverJs.replace("const { google } = require('googleapis');\n", '');
     if (!needsCrypto) serverJs = serverJs.replace("const crypto = require('crypto');\n", '');
 
-    // ── package.json ──────────────────────────────────────────────────────
+    // ── package.json ─────────────────────────────────────────────────────
     const deps = {
       "express": "^4.18.2",
       "axios": "^1.6.0",
@@ -171,7 +237,7 @@ app.post('/api/generate', (req, res) => {
       routes: [{ src: "/(.*)", dest: "server.js" }]
     }, null, 2);
 
-    // ─ .env.example ─────────────────────────────────────────────────────
+    // ── .env.example ──────────────────────────────────────────────────────
     let envExample = `# ${clientName} Dashboard — Environment Variables\n\n`;
     envExample += `# Google Service Account\nGOOGLE_SERVICE_ACCOUNT_EMAIL=your-service-account@project.iam.gserviceaccount.com\nGOOGLE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\\nYOUR_KEY_HERE\\n-----END PRIVATE KEY-----\\n"\n`;
     if (useWC) envExample += `\n# WhatConverts\nWHATCONVERTS_TOKEN=your_token\nWHATCONVERTS_SECRET=your_secret\n`;
@@ -204,7 +270,7 @@ app.post('/api/generate', (req, res) => {
       supabaseSql += `-- Document Review Portal Tables\nCREATE TABLE documents (\n  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,\n  title TEXT NOT NULL,\n  google_doc_url TEXT NOT NULL,\n  description TEXT,\n  status TEXT DEFAULT 'pending',\n  created_by TEXT NOT NULL,\n  created_at TIMESTAMPTZ DEFAULT NOW(),\n  updated_at TIMESTAMPTZ DEFAULT NOW()\n);\nCREATE TABLE comments (\n  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,\n  document_id UUID REFERENCES documents(id) ON DELETE CASCADE,\n  author_email TEXT NOT NULL,\n  author_name TEXT,\n  body TEXT NOT NULL,\n  created_at TIMESTAMPTZ DEFAULT NOW()\n);\nALTER TABLE documents ENABLE ROW LEVEL SECURITY;\nALTER TABLE comments ENABLE ROW LEVEL SECURITY;\nCREATE POLICY "service_role_all" ON documents FOR ALL USING (true);\nCREATE POLICY "service_role_all" ON comments FOR ALL USING (true);\nGRANT ALL ON documents TO service_role;\nGRANT ALL ON comments TO service_role;\n\n`;
     }
 
-    // ── Sheet structure guide ─────────────────────────────────────────────
+    // ─ Sheet structure guide ─────────────────────────────────────────────
     let sheetGuide = '';
     if (useSheets && sheetColumns?.length) {
       const colRows = sheetColumns.map(c => `| ${c.column_letter} | ${c.sheet_header} | ${c.label} | ${c.type} |`).join('\n');
@@ -216,7 +282,7 @@ app.post('/api/generate', (req, res) => {
     }
 
     // ─ README ────────────────────────────────────────────────────────────
-    const readme = `# ${clientName} Analytics Dashboard\n\nGenerated by ${agency} Dashboard Generator\n\n## Quick Start\n\n\`\`\`bash\nnpm install\nnode server.js\n\`\`\`\n\nOpen: http://localhost:3000\n\n## Vercel Deployment\n\n1. Push this folder to a new GitHub repo\n2. Import repo in Vercel — Framework: **Other**\n3. Add all environment variables from \`.env.example\`\n4. Deploy\n\n## Data Sources\n${useGA4 ? `- ✅ Google Analytics 4 (Property: ${ga4PropertyId})` : '- ❌ GA4 not enabled'}\n${useGSC ? `- ✅ Search Console (${gscSiteUrl})` : '- ❌ GSC not enabled'}\n${useWC ? `- ✅ WhatConverts (Profile: ${wcProfileId})` : '- ❌ WhatConverts not enabled'}\n${useSheets ? `- ✅ Google Sheets (Tab: ${sheetTab})` : '-  Google Sheets not enabled'}\n${useGMB ? '- ✅ Google Business Profile (via Sheets gmb_data tab)' : '- ❌ GBP not enabled'}\n${useDocs ? '- ✅ Document Review Portal (Supabase Auth)' : '- ❌ Document Review not enabled'}\n${useDashboardLogin ? '- ✅ Dashboard Login (email/password)' : '- ❌ No dashboard login (public)'}\n${sheetGuide}\n## Service Account Access\n\nGrant \`GOOGLE_SERVICE_ACCOUNT_EMAIL\` access to:\n- GA4: Admin → Account Access Management → Viewer\n- GSC: Settings → Users and permissions → Full\n- Google Sheet: Share → Viewer\n\n---\nGenerated by ${agency} · ${new Date().toLocaleDateString()}\n`;
+    const readme = `# ${clientName} Analytics Dashboard\n\nGenerated by ${agency} Dashboard Generator\n\n## Quick Start\n\n\`\`\`bash\nnpm install\nnode server.js\n\`\`\`\n\nOpen: http://localhost:3000\n\n## Vercel Deployment\n\n1. Push this folder to a new GitHub repo\n2. Import repo in Vercel — Framework: **Other**\n3. Add all environment variables from \`.env.example\`\n4. Deploy\n\n## Data Sources\n${useGA4 ? `- ✅ Google Analytics 4 (Property: ${ga4PropertyId})` : '- ❌ GA4 not enabled'}\n${useGSC ? `- ✅ Search Console (${gscSiteUrl})` : '- ❌ GSC not enabled'}\n${useWC ? `- ✅ WhatConverts (Profile: ${wcProfileId})` : '- ❌ WhatConverts not enabled'}\n${useSheets ? `- ✅ Google Sheets (Tab: ${sheetTab})` : '- ❌ Google Sheets not enabled'}\n${useGMB ? '- ✅ Google Business Profile (via Sheets gmb_data tab)' : '- ❌ GBP not enabled'}\n${useDocs ? '- ✅ Document Review Portal (Supabase Auth)' : '- ❌ Document Review not enabled'}\n${useDashboardLogin ? '- ✅ Dashboard Login (email/password)' : '- ❌ No dashboard login (public)'}\n${sheetGuide}\n## Service Account Access\n\nGrant \`GOOGLE_SERVICE_ACCOUNT_EMAIL\` access to:\n- GA4: Admin → Account Access Management → Viewer\n- GSC: Settings → Users and permissions → Full\n- Google Sheet: Share → Viewer\n\n---\nGenerated by ${agency} · ${new Date().toLocaleDateString()}\n`;
 
     const gitignore = `# Environment & secrets\n.env\nprivate-key.pem\n*-service-account*.json\nnode_modules/\nlayout.json\n`;
 
