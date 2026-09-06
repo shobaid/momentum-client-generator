@@ -43,7 +43,6 @@ app.post('/api/generate', (req, res) => {
       sheetId, sheetTab, sheetColumns,
       qualifiedLabel,
       supabaseUrl, supabaseKey,
-      googleClientId, googleClientSecret, redirectUri,
       useGA4, useGSC, useWC, useSheets, useDocs, useQualified, useAdSpend,
       useGMB, useDashboardLogin, gmbTab, gmbSheetId, dashUsers
     } = config;
@@ -114,7 +113,7 @@ app.post('/api/generate', (req, res) => {
     if (!useWC) serverJs = serverJs.replace(/\/\/ ─ WhatConverts proxy[\s\S]*?(?=\/\/ ── WhatConverts NP|\/\/ ── Google Sheets|\/\/ ── Google Business|\/\/ ── Dashboard Auth|\/\/ ── Review Auth|const PORT)/, '');
     if (!useQualified) serverJs = serverJs.replace(/\/\/ ── WhatConverts NP Appointments[\s\S]*?(?=\/\/ ── Google Sheets|\/\/ ── Google Business|\/\/ ── Dashboard Auth|\/\/ ── Review Auth|const PORT)/, '');
     if (!useSheets) serverJs = serverJs.replace(/\/\/ ── Google Sheets[\s\S]*?(?=\/\/ ── Google Business|\/\/ ── Dashboard Auth|\/\/ ── Review Auth|const PORT)/, '');
-    if (!useGMB) serverJs = serverJs.replace(/\/\/ ── Google Business Profile[\s\S]*?(?=\/\/ ── Dashboard Auth|\/\/ ── Review Auth|const PORT)/, '');
+    if (!useGMB) serverJs = serverJs.replace(/\/\/ ── Google Business Profile[\s\S]*?(?=\/\/ ── Dashboard Auth|\/\/ ─ Review Auth|const PORT)/, '');
     if (!useDashboardLogin) serverJs = serverJs.replace(/\/\/ ── Dashboard Auth[\s\S]*?(?=\/\/ ── Review Auth|const PORT)/, '');
     if (!useDocs) {
       serverJs = serverJs.replace(/\/\/ ── Review Auth[\s\S]*?(?=const PORT)/, '');
@@ -172,17 +171,13 @@ app.post('/api/generate', (req, res) => {
       routes: [{ src: "/(.*)", dest: "server.js" }]
     }, null, 2);
 
-    // ── .env.example ─────────────────────────────────────────────────────
+    // ─ .env.example ─────────────────────────────────────────────────────
     let envExample = `# ${clientName} Dashboard — Environment Variables\n\n`;
     envExample += `# Google Service Account\nGOOGLE_SERVICE_ACCOUNT_EMAIL=your-service-account@project.iam.gserviceaccount.com\nGOOGLE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\\nYOUR_KEY_HERE\\n-----END PRIVATE KEY-----\\n"\n`;
     if (useWC) envExample += `\n# WhatConverts\nWHATCONVERTS_TOKEN=your_token\nWHATCONVERTS_SECRET=your_secret\n`;
     
     if (needsSupabase) {
-      envExample += `\n# Supabase\nSUPABASE_URL=${supabaseUrl || 'https://xxxx.supabase.co'}\nSUPABASE_SERVICE_KEY=${supabaseKey || 'your_service_key_here'}\n`;
-    }
-    
-    if (useDocs) {
-      envExample += `\n# Google OAuth (for Document Review)\nGOOGLE_CLIENT_ID=${googleClientId || 'your_client_id'}\nGOOGLE_CLIENT_SECRET=${googleClientSecret || 'your_client_secret'}\nREDIRECT_URI=${redirectUri || `https://${slug}-dashboard.vercel.app/auth/callback`}\n`;
+      envExample += `\n# Supabase (Used for Dashboard Login & Document Review)\nSUPABASE_URL=${supabaseUrl || 'https://xxxx.supabase.co'}\nSUPABASE_SERVICE_KEY=${supabaseKey || 'your_service_key_here'}\n`;
     }
     
     envExample += `\nSESSION_SECRET=${slug}-change-this-to-random-string\n`;
@@ -190,7 +185,7 @@ app.post('/api/generate', (req, res) => {
     // ── Supabase SQL ──────────────────────────────────────────────────────
     let supabaseSql = `-- ${clientName} Dashboard — Supabase Setup\n-- Run this in the Supabase SQL Editor\n\n`;
 
-    if (useDashboardLogin) {
+    if (useDashboardLogin || useDocs) {
       const userInserts = (dashUsers || []).map(u => {
         const hash = bcrypt.hashSync(u.password, 10);
         const name = (u.name || u.email).replace(/'/g, "''");
@@ -202,11 +197,11 @@ app.post('/api/generate', (req, res) => {
         ? `\n-- Initial users\nINSERT INTO dashboard_users (email, name, role, password_hash) VALUES\n  ${userInserts};\n`
         : `\n-- Add users:\n-- INSERT INTO dashboard_users (email, name, role, password_hash) VALUES\n-- ('user@email.com', 'Name', 'viewer', bcrypt_hash_here);\n`;
 
-      supabaseSql += `-- Dashboard Users (email/password login)\nCREATE TABLE IF NOT EXISTS dashboard_users (\n  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,\n  email TEXT UNIQUE NOT NULL,\n  password_hash TEXT NOT NULL,\n  name TEXT,\n  role TEXT DEFAULT 'viewer',\n  created_at TIMESTAMPTZ DEFAULT NOW()\n);\nALTER TABLE dashboard_users ENABLE ROW LEVEL SECURITY;\nCREATE POLICY "service_role_all" ON dashboard_users FOR ALL USING (true);\nGRANT ALL ON dashboard_users TO service_role;\n${userSql}\n`;
+      supabaseSql += `-- Dashboard Users & Reviewers (email/password login via Supabase)\nCREATE TABLE IF NOT EXISTS dashboard_users (\n  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,\n  email TEXT UNIQUE NOT NULL,\n  password_hash TEXT NOT NULL,\n  name TEXT,\n  role TEXT DEFAULT 'viewer',\n  created_at TIMESTAMPTZ DEFAULT NOW()\n);\nALTER TABLE dashboard_users ENABLE ROW LEVEL SECURITY;\nCREATE POLICY "service_role_all" ON dashboard_users FOR ALL USING (true);\nGRANT ALL ON dashboard_users TO service_role;\n${userSql}\n`;
     }
 
     if (useDocs) {
-      supabaseSql += `-- Document Review Portal\nCREATE TABLE documents (\n  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,\n  title TEXT NOT NULL,\n  google_doc_url TEXT NOT NULL,\n  description TEXT,\n  status TEXT DEFAULT 'pending',\n  created_by TEXT NOT NULL,\n  created_at TIMESTAMPTZ DEFAULT NOW(),\n  updated_at TIMESTAMPTZ DEFAULT NOW()\n);\nCREATE TABLE comments (\n  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,\n  document_id UUID REFERENCES documents(id) ON DELETE CASCADE,\n  author_email TEXT NOT NULL,\n  author_name TEXT,\n  body TEXT NOT NULL,\n  created_at TIMESTAMPTZ DEFAULT NOW()\n);\nCREATE TABLE allowed_reviewers (\n  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,\n  email TEXT UNIQUE NOT NULL,\n  name TEXT,\n  role TEXT DEFAULT 'reviewer',\n  added_at TIMESTAMPTZ DEFAULT NOW()\n);\nALTER TABLE documents ENABLE ROW LEVEL SECURITY;\nALTER TABLE comments ENABLE ROW LEVEL SECURITY;\nALTER TABLE allowed_reviewers ENABLE ROW LEVEL SECURITY;\nCREATE POLICY "service_role_all" ON documents FOR ALL USING (true);\nCREATE POLICY "service_role_all" ON comments FOR ALL USING (true);\nCREATE POLICY "service_role_all" ON allowed_reviewers FOR ALL USING (true);\nGRANT ALL ON documents TO service_role;\nGRANT ALL ON comments TO service_role;\nGRANT ALL ON allowed_reviewers TO service_role;\n\n`;
+      supabaseSql += `-- Document Review Portal Tables\nCREATE TABLE documents (\n  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,\n  title TEXT NOT NULL,\n  google_doc_url TEXT NOT NULL,\n  description TEXT,\n  status TEXT DEFAULT 'pending',\n  created_by TEXT NOT NULL,\n  created_at TIMESTAMPTZ DEFAULT NOW(),\n  updated_at TIMESTAMPTZ DEFAULT NOW()\n);\nCREATE TABLE comments (\n  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,\n  document_id UUID REFERENCES documents(id) ON DELETE CASCADE,\n  author_email TEXT NOT NULL,\n  author_name TEXT,\n  body TEXT NOT NULL,\n  created_at TIMESTAMPTZ DEFAULT NOW()\n);\nALTER TABLE documents ENABLE ROW LEVEL SECURITY;\nALTER TABLE comments ENABLE ROW LEVEL SECURITY;\nCREATE POLICY "service_role_all" ON documents FOR ALL USING (true);\nCREATE POLICY "service_role_all" ON comments FOR ALL USING (true);\nGRANT ALL ON documents TO service_role;\nGRANT ALL ON comments TO service_role;\n\n`;
     }
 
     // ── Sheet structure guide ─────────────────────────────────────────────
@@ -220,8 +215,8 @@ app.post('/api/generate', (req, res) => {
       sheetGuide += `\n## Google Business Profile Sheet (gmb_data tab)\n\nExport from Agency Analytics Google Sheets add-on:\n- Integration: Google Business Profile\n- View: Location Analytics\n- Dimension: Date\n- Metrics: Impressions, Interactions, Website Clicks, Call Clicks, Direction Requests, all Impression breakdowns\n- Row Limit: All\n`;
     }
 
-    // ── README ────────────────────────────────────────────────────────────
-    const readme = `# ${clientName} Analytics Dashboard\n\nGenerated by ${agency} Dashboard Generator\n\n## Quick Start\n\n\`\`\`bash\nnpm install\nnode server.js\n\`\`\`\n\nOpen: http://localhost:3000\n\n## Vercel Deployment\n\n1. Push this folder to a new GitHub repo\n2. Import repo in Vercel — Framework: **Other**\n3. Add all environment variables from \`.env.example\`\n4. Deploy\n\n## Data Sources\n${useGA4 ? `- ✅ Google Analytics 4 (Property: ${ga4PropertyId})` : '- ❌ GA4 not enabled'}\n${useGSC ? `- ✅ Search Console (${gscSiteUrl})` : '- ❌ GSC not enabled'}\n${useWC ? `- ✅ WhatConverts (Profile: ${wcProfileId})` : '- ❌ WhatConverts not enabled'}\n${useSheets ? `- ✅ Google Sheets (Tab: ${sheetTab})` : '- ❌ Google Sheets not enabled'}\n${useGMB ? '- ✅ Google Business Profile (via Sheets gmb_data tab)' : '- ❌ GBP not enabled'}\n${useDocs ? '- ✅ Document Review Portal' : '-  Document Review not enabled'}\n${useDashboardLogin ? '- ✅ Dashboard Login (email/password)' : '- ❌ No dashboard login (public)'}\n${sheetGuide}\n## Service Account Access\n\nGrant \`GOOGLE_SERVICE_ACCOUNT_EMAIL\` access to:\n- GA4: Admin → Account Access Management → Viewer\n- GSC: Settings → Users and permissions → Full\n- Google Sheet: Share → Viewer\n\n---\nGenerated by ${agency} · ${new Date().toLocaleDateString()}\n`;
+    // ─ README ────────────────────────────────────────────────────────────
+    const readme = `# ${clientName} Analytics Dashboard\n\nGenerated by ${agency} Dashboard Generator\n\n## Quick Start\n\n\`\`\`bash\nnpm install\nnode server.js\n\`\`\`\n\nOpen: http://localhost:3000\n\n## Vercel Deployment\n\n1. Push this folder to a new GitHub repo\n2. Import repo in Vercel — Framework: **Other**\n3. Add all environment variables from \`.env.example\`\n4. Deploy\n\n## Data Sources\n${useGA4 ? `- ✅ Google Analytics 4 (Property: ${ga4PropertyId})` : '- ❌ GA4 not enabled'}\n${useGSC ? `- ✅ Search Console (${gscSiteUrl})` : '- ❌ GSC not enabled'}\n${useWC ? `- ✅ WhatConverts (Profile: ${wcProfileId})` : '- ❌ WhatConverts not enabled'}\n${useSheets ? `- ✅ Google Sheets (Tab: ${sheetTab})` : '-  Google Sheets not enabled'}\n${useGMB ? '- ✅ Google Business Profile (via Sheets gmb_data tab)' : '- ❌ GBP not enabled'}\n${useDocs ? '- ✅ Document Review Portal (Supabase Auth)' : '- ❌ Document Review not enabled'}\n${useDashboardLogin ? '- ✅ Dashboard Login (email/password)' : '- ❌ No dashboard login (public)'}\n${sheetGuide}\n## Service Account Access\n\nGrant \`GOOGLE_SERVICE_ACCOUNT_EMAIL\` access to:\n- GA4: Admin → Account Access Management → Viewer\n- GSC: Settings → Users and permissions → Full\n- Google Sheet: Share → Viewer\n\n---\nGenerated by ${agency} · ${new Date().toLocaleDateString()}\n`;
 
     const gitignore = `# Environment & secrets\n.env\nprivate-key.pem\n*-service-account*.json\nnode_modules/\nlayout.json\n`;
 

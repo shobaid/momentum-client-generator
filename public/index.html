@@ -54,6 +54,12 @@
   .mapper-row button:hover { background: var(--bg3); color: #f87171; }
   .col-letter-select { font-family: var(--mono); font-weight: 600; text-align: center; }
 
+  /* User Row Styles */
+  .user-row { display: grid; grid-template-columns: 1.5fr 1fr 1fr 100px 40px; gap: 10px; align-items: center; background: var(--bg4); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; }
+  .user-row input, .user-row select { background: var(--bg3); border: 1px solid var(--border2); border-radius: 6px; color: var(--text); padding: 8px; font-size: 12px; font-family: var(--font); outline: none; width: 100%; }
+  .user-row button { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 16px; padding: 4px; border-radius: 4px; }
+  .user-row button:hover { background: var(--bg3); color: #f87171; }
+
   .add-col-btn { width: 100%; background: var(--bg4); border: 1px dashed var(--border2); color: var(--muted2); padding: 10px; border-radius: var(--radius-sm); cursor: pointer; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.15s; margin-top: 8px; }
   .add-col-btn:hover { background: var(--bg3); color: var(--text); border-color: var(--green); }
 
@@ -87,7 +93,7 @@
 
   <!-- Client Info -->
   <div class="section">
-    <div class="section-title"> Client Information</div>
+    <div class="section-title">🏢 Client Information</div>
     <div class="field-row">
       <div class="field"><label>Client Name *</label><input type="text" id="g-clientName" placeholder="e.g. Penn Pain Center"></div>
       <div class="field"><label>Client Website</label><input type="text" id="g-clientWebsite" placeholder="https://..."></div>
@@ -100,7 +106,7 @@
 
   <!-- Data Sources -->
   <div class="section">
-    <div class="section-title">🔌 Data Sources</div>
+    <div class="section-title"> Data Sources</div>
     
     <div class="feature-row">
       <div class="feature-info"><span style="font-size:18px">📊</span><div><div class="feature-name">Google Analytics 4</div><div class="feature-desc">Traffic, sessions, and user metrics</div></div></div>
@@ -111,7 +117,7 @@
     </div>
 
     <div class="feature-row">
-      <div class="feature-info"><span style="font-size:18px"></span><div><div class="feature-name">Google Search Console</div><div class="feature-desc">Organic search performance and queries</div></div></div>
+      <div class="feature-info"><span style="font-size:18px">🔍</span><div><div class="feature-name">Google Search Console</div><div class="feature-desc">Organic search performance and queries</div></div></div>
       <button class="toggle" id="tog-gsc" onclick="toggleSrc('gsc')"></button>
     </div>
     <div class="sub-fields" id="sub-gsc">
@@ -127,7 +133,7 @@
     </div>
 
     <div class="feature-row">
-      <div class="feature-info"><span style="font-size:18px"></span><div><div class="feature-name">Google Sheets</div><div class="feature-desc">Custom data columns — ad spend, revenue, leads or any metric</div></div></div>
+      <div class="feature-info"><span style="font-size:18px">📋</span><div><div class="feature-name">Google Sheets</div><div class="feature-desc">Custom data columns — ad spend, revenue, leads or any metric</div></div></div>
       <button class="toggle" id="tog-sheets" onclick="toggleSrc('sheets')"></button>
     </div>
     <div class="sub-fields" id="sub-sheets">
@@ -141,9 +147,7 @@
         Column Mapping (A-C are reserved for Date/Week Start/Week End)
       </div>
       
-      <div id="columnMapper" style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px">
-        <!-- Dynamic rows go here -->
-      </div>
+      <div id="columnMapper" style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px"></div>
       <button class="add-col-btn" onclick="addMapperRow()">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         Add Data Column
@@ -180,7 +184,7 @@
     </div>
 
     <div class="feature-row">
-      <div class="feature-info"><span style="font-size:18px">📄</span><div><div class="feature-name">Document Review Portal</div><div class="feature-desc">Client document approval workflow</div></div></div>
+      <div class="feature-info"><span style="font-size:18px">📄</span><div><div class="feature-name">Document Review Portal</div><div class="feature-desc">Client document approval workflow (Uses Supabase Auth)</div></div></div>
       <button class="toggle" id="tog-docs" onclick="toggleFeat('docs')"></button>
     </div>
   </div>
@@ -188,20 +192,22 @@
   <!-- Backend & Auth Config (Appears if Login or Docs enabled) -->
   <div class="section" id="backendConfigSection" style="display:none">
     <div class="section-title">⚙️ Backend & Auth Configuration</div>
-    <div class="hint" style="margin-bottom:16px">Required for Dashboard Login and/or Document Review Portal features.</div>
+    <div class="hint" style="margin-bottom:16px">Required for Dashboard Login and/or Document Review Portal features. Both use Supabase for authentication.</div>
     
     <div class="field-row">
       <div class="field"><label>Supabase URL *</label><input type="text" id="g-supabaseUrl" placeholder="https://xxxx.supabase.co"></div>
       <div class="field"><label>Supabase Service Key *</label><input type="text" id="g-supabaseKey" placeholder="eyJhbGciOiJIUzI1NiIs..."></div>
     </div>
 
-    <div id="docsAuthFields" style="display:none">
-      <div style="font-size:11px;font-weight:600;font-family:var(--mono);color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin:16px 0 10px">Google OAuth (For Document Reviewers)</div>
-      <div class="field-row">
-        <div class="field"><label>Google Client ID *</label><input type="text" id="g-googleClientId" placeholder="123456789.apps.googleusercontent.com"></div>
-        <div class="field"><label>Google Client Secret *</label><input type="text" id="g-googleClientSecret" placeholder="GOCSPX-..."></div>
-      </div>
-      <div class="field"><label>Redirect URI</label><input type="text" id="g-redirectUri" placeholder="https://your-domain.vercel.app/auth/callback"></div>
+    <!-- Dashboard Users Section -->
+    <div id="dashLoginUsersFields" style="display:none; margin-top: 20px; border-top: 1px solid var(--border); padding-top: 16px;">
+      <div style="font-size:11px;font-weight:600;font-family:var(--mono);color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:10px">👥 Dashboard & Reviewer Users</div>
+      <div class="hint" style="margin-bottom:12px">Add users who can log into the Dashboard and/or review documents. Passwords are securely hashed.</div>
+      <div id="dashUsersContainer"></div>
+      <button class="add-col-btn" onclick="addDashUser()" style="margin-top:8px">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Add User
+      </button>
     </div>
   </div>
 
@@ -231,12 +237,13 @@
 </div>
 
 <script>
-// ── State ──────────────────────────────────────────────────────────────────
+// ─ State ──────────────────────────────────────────────────────────────────
 const src = { ga4: false, gsc: false, wc: false, sheets: false };
 const feat = { adspend: false, qualified: false, gmb: false, dashLogin: false, docs: false };
 let generatedFiles = null;
 let generatedSlug = '';
 let mapperRowCount = 0;
+let dashUserCount = 0;
 
 // ── Toggles ───────────────────────────────────────────────────────────────
 function toggleSrc(key) {
@@ -252,13 +259,13 @@ function toggleFeat(key) {
   // Show/hide backend config section
   const showBackend = feat.dashLogin || feat.docs;
   document.getElementById('backendConfigSection').style.display = showBackend ? 'block' : 'none';
-  document.getElementById('docsAuthFields').style.display = feat.docs ? 'block' : 'none';
+  document.getElementById('dashLoginUsersFields').style.display = feat.dashLogin ? 'block' : 'none';
 }
 
 // ── Custom Column Mapper System ───────────────────────────────────────────
 const METRIC_TYPES = [
-  { value: 'ad_spend', label: ' Ad Spend', color: '#f87171' },
-  { value: 'np_appointments', label: '🏥 NP Appointments', color: '#00d084' },
+  { value: 'ad_spend', label: '💰 Ad Spend', color: '#f87171' },
+  { value: 'np_appointments', label: ' NP Appointments', color: '#00d084' },
   { value: 'future_apps', label: '📅 Future Month Apps', color: '#4d9fff' },
   { value: 'mtd_total', label: '📊 MTD Total', color: '#f59e0b' },
   { value: 'revenue', label: '💵 Revenue', color: '#10b981' },
@@ -320,9 +327,9 @@ function getSheetColumnsFromMapper() {
     if (header) {
       columns.push({
         column_letter: letter,
-        sheet_header: header, // The exact name from the user's Google Sheet
-        key: metric,          // The internal dashboard purpose
-        label: header,        // Display label on dashboard
+        sheet_header: header,
+        key: metric,
+        label: header,
         type: type,
         color: color
       });
@@ -331,7 +338,48 @@ function getSheetColumnsFromMapper() {
   return columns;
 }
 
-// ── Generate Dashboard ─────────────────────────────────────────────────────
+// ─ Dashboard Users System ────────────────────────────────────────────────
+function addDashUser() {
+  dashUserCount++;
+  const id = dashUserCount;
+  const container = document.getElementById('dashUsersContainer');
+  
+  const row = document.createElement('div');
+  row.className = 'user-row';
+  row.id = `dash-user-${id}`;
+  row.innerHTML = `
+    <input type="email" id="user-email-${id}" placeholder="Email address">
+    <input type="text" id="user-name-${id}" placeholder="Full Name">
+    <input type="password" id="user-pass-${id}" placeholder="Password">
+    <select id="user-role-${id}">
+      <option value="admin">Admin</option>
+      <option value="reviewer">Reviewer</option>
+      <option value="viewer" selected>Viewer</option>
+    </select>
+    <button onclick="document.getElementById('dash-user-${id}').remove()" title="Remove">✕</button>
+  `;
+  container.appendChild(row);
+}
+
+function getDashUsers() {
+  const users = [];
+  for (let i = 1; i <= dashUserCount; i++) {
+    const row = document.getElementById(`dash-user-${i}`);
+    if (!row) continue;
+    
+    const email = document.getElementById(`user-email-${i}`).value.trim();
+    const name = document.getElementById(`user-name-${i}`).value.trim();
+    const password = document.getElementById(`user-pass-${i}`).value;
+    const role = document.getElementById(`user-role-${i}`).value;
+    
+    if (email && password) {
+      users.push({ email, name: name || email, password, role });
+    }
+  }
+  return users;
+}
+
+// ── Generate Dashboard ────────────────────────────────────────────────────
 async function generateDashboard() {
   const clientName = document.getElementById('g-clientName').value.trim();
   if(!clientName) return showErr('Client name is required');
@@ -347,6 +395,10 @@ async function generateDashboard() {
 
   if((feat.dashLogin || feat.docs) && !document.getElementById('g-supabaseUrl').value.trim()) {
     return showErr('Supabase URL is required for Login/Document features');
+  }
+
+  if((feat.dashLogin || feat.docs) && getDashUsers().length === 0) {
+    return showErr('Add at least one user for Dashboard/Document access');
   }
 
   const btn = document.getElementById('genBtn');
@@ -368,9 +420,7 @@ async function generateDashboard() {
     qualifiedLabel: document.getElementById('g-qualifiedLabel').value.trim() || 'Qualified Leads',
     supabaseUrl: document.getElementById('g-supabaseUrl').value.trim(),
     supabaseKey: document.getElementById('g-supabaseKey').value.trim(),
-    googleClientId: document.getElementById('g-googleClientId')?.value.trim() || '',
-    googleClientSecret: document.getElementById('g-googleClientSecret')?.value.trim() || '',
-    redirectUri: document.getElementById('g-redirectUri')?.value.trim() || '',
+    dashUsers: (feat.dashLogin || feat.docs) ? getDashUsers() : [],
     useGA4: src.ga4, useGSC: src.gsc, useWC: src.wc, useSheets: src.sheets,
     useDocs: feat.docs, useQualified: feat.qualified, useAdSpend: feat.adspend,
     useGMB: feat.gmb, useDashboardLogin: feat.dashLogin

@@ -419,58 +419,56 @@ app.post('/auth/dashboard/logout', (req, res) => {
   res.json({ ok: true });
 });
 
-// ── Review Auth: start OAuth ───────────────────────────────────────────────
-app.get('/auth/review/login', (req, res) => {
-  const state = crypto.randomBytes(16).toString('hex');
-  res.cookie('pp_review_state', state, { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax', maxAge: 10 * 60 * 1000 });
-  const params = new URLSearchParams({
-    client_id: process.env.GOOGLE_CLIENT_ID,
-    redirect_uri: process.env.REDIRECT_URI,
-    response_type: 'code',
-    scope: 'email profile',
-    access_type: 'online',
-    prompt: 'select_account',
-    state
-  });
-  res.json({ url: `https://accounts.google.com/o/oauth2/v2/auth?${params}` });
-});
-
-app.get('/auth/callback', async (req, res) => {
-  const { code, state, error } = req.query;
-  if (error) return res.redirect(`/?review_error=${encodeURIComponent(error)}`);
-  const savedState = req.cookies?.pp_review_state;
-  if (!savedState || savedState !== state) return res.redirect('/?review_error=invalid_state');
-  res.clearCookie('pp_review_state');
+// ── Review Auth (Supabase Email/Password) ──────────────────────────────
+app.post('/auth/review/login', async (req, res) => {
   try {
-    const tokenRes = await axios.post('https://oauth2.googleapis.com/token', {
-      code, client_id: process.env.GOOGLE_CLIENT_ID,
-      client_secret: process.env.GOOGLE_CLIENT_SECRET,
-      redirect_uri: process.env.REDIRECT_URI, grant_type: 'authorization_code'
-    });
-    const userRes = await axios.get('https://www.googleapis.com/oauth2/v3/userinfo', {
-      headers: { Authorization: `Bearer ${tokenRes.data.access_token}` }
-    });
-    const email = userRes.data.email;
-    const { data: reviewer, error: reviewerError } = await supabase
-      .from('allowed_reviewers').select('*').ilike('email', email.trim()).maybeSingle();
-    if (reviewerError) return res.redirect(`/?review_error=${encodeURIComponent('Database error: ' + reviewerError.message)}`);
-    if (!reviewer) return res.redirect(`/?review_error=${encodeURIComponent('not_authorized: ' + email)}`);
-    res.cookie(REVIEW_COOKIE, signSession({ email, name: userRes.data.name, picture: userRes.data.picture, role: reviewer.role }), COOKIE_OPTS);
-    res.redirect('/?section=documents');
-  } catch (e) {
-    res.redirect(`/?review_error=${encodeURIComponent('Authentication failed')}`);
-  }
-});
+    const { email, password } = req.body;
+    if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
 
-app.get('/auth/review/me', (req, res) => {
-  const session = readSession(req);
-  if (!session) return res.json({ authenticated: false });
-  res.json({ authenticated: true, user: session });
+    const { data: user, error } = await supabase
+      .from('dashboard_users')
+      .select('id, email, name, role, password_hash')
+      .eq('email', email.toLowerCase())
+      .single();
+
+    if (error || !user) {
+      return res.status(401).json({ error: 'Invalid email or password' });
+    }
+
+    // Check if user has permission to review (admin or reviewer)
+    if (user.role !== 'admin' && user.role !== 'reviewer') {
+      return res.status(403).json({ error: 'You do not have permission to review documents' });
+    }
+
+    const isValid = await bcrypt.compare(password, user.password_hash);
+    if (!isValid) {
+      return res.status(401).json({ error: 'Invalid email or password' });
+    }
+
+    // Set reviewer session cookie
+    const sessionData = { id: user.id, email: user.email, name: user.name, role: user.role };
+    const token = signSession(sessionData);
+    
+    res.cookie(REVIEW_COOKIE, token, COOKIE_OPTS);
+    res.json({ ok: true, user: { email: user.email, name: user.name, role: user.role } });
+  } catch (e) {
+    console.error('Review login error:', e);
+    res.status(500).json({ error: 'Login failed' });
+  }
 });
 
 app.post('/auth/review/logout', (req, res) => {
   res.clearCookie(REVIEW_COOKIE);
   res.json({ ok: true });
+});
+
+app.get('/auth/review/me', (req, res) => {
+  const user = readSession(req);
+  if (user && (user.role === 'admin' || user.role === 'reviewer')) {
+    res.json({ authenticated: true, user });
+  } else {
+    res.json({ authenticated: false });
+  }
 });
 
 // ── Documents API ──────────────────────────────────────────────────────────
