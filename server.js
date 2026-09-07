@@ -2,7 +2,6 @@ const express = require('express');
 const path = require('path');
 const fs = require('fs');
 const bcrypt = require('bcryptjs');
-
 require('dotenv').config();
 
 const app = express();
@@ -109,10 +108,9 @@ app.post('/api/generate', (req, res) => {
       indexHtml = indexHtml.replace(/%%GMB_SECTION%%/g, '');
     }
 
-    // Sheet KPI Cards
+    // Sheet KPI Cards - ONLY render if Google Sheets is enabled AND columns exist
     if (useSheets && sheetColumns && sheetColumns.length > 0) {
       const cleanCols = sheetColumns.map(col => ({
-        ...col,
         label: (col.label || '').trim(),
         key: (col.key || '').trim(),
         color: (col.color || '').trim()
@@ -139,13 +137,17 @@ app.post('/api/generate', (req, res) => {
       
       indexHtml = indexHtml.replace(/%%SHEET_KPI_CARDS%%/g, kpiCards);
     } else {
+      // If Google Sheets is disabled, completely remove the placeholder
       indexHtml = indexHtml.replace(/%%SHEET_KPI_CARDS%%/g, '');
     }
 
-    // Feature visibility swaps
+    // Feature visibility swaps - remove entire sections if disabled
     const toggleSection = (id, show) => {
-      if (!show) indexHtml = indexHtml.replace(new RegExp(`<div class="feature-row"[\\s\\S]*?id="tog-${id}"[\\s\\S]*?</div>\\s*<div class="sub-fields"[\\s\\S]*?id="sub-${id}"[\\s\\S]*?</div>`, 'm'), '');
+      if (!show) {
+        indexHtml = indexHtml.replace(new RegExp(`<div class="feature-row"[\\s\\S]*?id="tog-${id}"[\\s\\S]*?</div>\\s*<div class="sub-fields"[\\s\\S]*?id="sub-${id}"[\\s\\S]*?</div>`, 'm'), '');
+      }
     };
+    
     if (!useGA4) toggleSection('ga4', false);
     if (!useGSC) toggleSection('gsc', false);
     if (!useWC) toggleSection('wc', false);
@@ -190,12 +192,22 @@ app.post('/api/generate', (req, res) => {
     const finalColsJson = JSON.stringify(cleanColumns);
     serverJs = serverJs.replace('%%SHEET_COLUMNS%%', finalColsJson);
 
-    // Remove unused endpoints
-    if (!useWC) serverJs = serverJs.replace(/\/\/ ─ WhatConverts proxy[\s\S]*?(?=\/\/ ── WhatConverts NP|\/\/ ── Google Sheets|\/\/ ── Google Business|\/\/ ── Dashboard Auth|\/\/ ── Review Auth|const PORT)/, '');
-    if (!useQualified) serverJs = serverJs.replace(/\/\/ ── WhatConverts NP Appointments[\s\S]*?(?=\/\/ ── Google Sheets|\/\/ ─ Google Business|\/\/ ── Dashboard Auth|\/\/ ── Review Auth|const PORT)/, '');
-    if (!useSheets) serverJs = serverJs.replace(/\/\/ ── Google Sheets[\s\S]*?(?=\/\/ ── Google Business|\/\/ ─ Dashboard Auth|\/\/ ── Review Auth|const PORT)/, '');
-    if (!useGMB) serverJs = serverJs.replace(/\/\/ ── Google Business Profile[\s\S]*?(?=\/\/ ── Dashboard Auth|\/\/ ── Review Auth|const PORT)/, '');
-    if (!useDashboardLogin) serverJs = serverJs.replace(/\/\/ ── Dashboard Auth[\s\S]*?(?=\/\/ ── Review Auth|const PORT)/, '');
+    // Remove unused endpoints based on enabled features
+    if (!useWC) {
+      serverJs = serverJs.replace(/\/\/ ─ WhatConverts proxy[\s\S]*?(?=\/\/ ── WhatConverts NP|\/\/ ── Google Sheets|\/\/ ─ Google Business|\/\/ ── Dashboard Auth|\/\/ ── Review Auth|const PORT)/, '');
+    }
+    if (!useQualified) {
+      serverJs = serverJs.replace(/\/\/ ─ WhatConverts NP Appointments[\s\S]*?(?=\/\/ ── Google Sheets|\/\/ ─ Google Business|\/\/ ── Dashboard Auth|\/\/ ─ Review Auth|const PORT)/, '');
+    }
+    if (!useSheets) {
+      serverJs = serverJs.replace(/\/\/ ── Google Sheets[\s\S]*?(?=\/\/ ── Google Business|\/\/ ─ Dashboard Auth|\/\/ ─ Review Auth|const PORT)/, '');
+    }
+    if (!useGMB) {
+      serverJs = serverJs.replace(/\/\/ ── Google Business Profile[\s\S]*?(?=\/\/ ── Dashboard Auth|\/\/ ── Review Auth|const PORT)/, '');
+    }
+    if (!useDashboardLogin) {
+      serverJs = serverJs.replace(/\/\/ ── Dashboard Auth[\s\S]*?(?=\/\/ ── Review Auth|const PORT)/, '');
+    }
     if (!useDocs) {
       serverJs = serverJs.replace(/\/\/ ── Review Auth[\s\S]*?(?=const PORT)/, '');
       serverJs = serverJs.replace(/\/\/ ── Documents API[\s\S]*?(?=const PORT)/, '');
@@ -252,7 +264,7 @@ app.post('/api/generate', (req, res) => {
       routes: [{ src: "/(.*)", dest: "server.js" }]
     }, null, 2);
 
-    // ── .env.example ──────────────────────────────────────────────────────
+    // ─ .env.example ──────────────────────────────────────────────────────
     let envExample = `# ${clientName} Dashboard — Environment Variables\n\n`;
     envExample += `# Google Service Account\nGOOGLE_SERVICE_ACCOUNT_EMAIL=your-service-account@project.iam.gserviceaccount.com\nGOOGLE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\\nYOUR_KEY_HERE\\n-----END PRIVATE KEY-----\\n"\n`;
     if (useWC) envExample += `\n# WhatConverts\nWHATCONVERTS_TOKEN=your_token\nWHATCONVERTS_SECRET=your_secret\n`;
