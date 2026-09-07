@@ -111,7 +111,14 @@ app.post('/api/generate', (req, res) => {
 
     // Sheet KPI Cards
     if (useSheets && sheetColumns && sheetColumns.length > 0) {
-      const kpiCards = sheetColumns.map(col => `
+      const cleanCols = sheetColumns.map(col => ({
+        ...col,
+        label: (col.label || '').trim(),
+        key: (col.key || '').trim(),
+        color: (col.color || '').trim()
+      }));
+      
+      const kpiCards = cleanCols.map(col => `
         <div class="stat-card">
           <div class="stat-header">
             <div class="stat-label">${col.label.toUpperCase()}</div>
@@ -171,8 +178,16 @@ app.post('/api/generate', (req, res) => {
     serverJs = serverJs.replace(/%%CLIENT_NAME%%/g, clientName);
     serverJs = serverJs.replace(/%%QUALIFIED_LABEL%%/g, qlabel);
 
-    // Inject SHEET_COLUMNS config
-    const finalColsJson = JSON.stringify(sheetColumns || []);
+    // Inject SHEET_COLUMNS config - TRIM ALL SPACES
+    const cleanColumns = (sheetColumns || []).map(col => ({
+      column_letter: (col.column_letter || '').trim(),
+      sheet_header: (col.sheet_header || '').trim(),
+      key: (col.key || '').trim(),
+      label: (col.label || '').trim(),
+      type: (col.type || '').trim(),
+      color: (col.color || '').trim()
+    }));
+    const finalColsJson = JSON.stringify(cleanColumns);
     serverJs = serverJs.replace('%%SHEET_COLUMNS%%', finalColsJson);
 
     // Remove unused endpoints
@@ -273,7 +288,7 @@ app.post('/api/generate', (req, res) => {
     // ─ Sheet structure guide ─────────────────────────────────────────────
     let sheetGuide = '';
     if (useSheets && sheetColumns?.length) {
-      const colRows = sheetColumns.map(c => `| ${c.column_letter} | ${c.sheet_header} | ${c.label} | ${c.type} |`).join('\n');
+      const colRows = sheetColumns.map(c => `| ${(c.column_letter || '').trim()} | ${(c.sheet_header || '').trim()} | ${(c.label || '').trim()} | ${(c.type || '').trim()} |`).join('\n');
       sheetGuide = `\n## Google Sheet Structure (${sheetTab})\n\n| Col Letter | Sheet Header Name | Dashboard Metric | Data Type |\n|------------|-------------------|------------------|-----------|\n| A | Date (e.g. 8/1-8/6) | Date Label | text |\n| B | Week Start | Week Start | date |\n| C | Week End | Week End | date |\n${colRows}\n\nNewest row at top (row 2). Dashboard filters by Week End date.\n`;
     }
 
