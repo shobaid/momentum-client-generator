@@ -171,8 +171,16 @@ app.post('/api/generate', (req, res) => {
     serverJs = serverJs.replace(/%%CLIENT_NAME%%/g, clientName);
     serverJs = serverJs.replace(/%%QUALIFIED_LABEL%%/g, qlabel);
 
-    // Inject SHEET_COLUMNS config
-    const finalColsJson = JSON.stringify(sheetColumns || []);
+    // Inject SHEET_COLUMNS config - TRIM ALL SPACES
+    const cleanColumns = (sheetColumns || []).map(col => ({
+      column_letter: (col.column_letter || '').trim(),
+      sheet_header: (col.sheet_header || '').trim(),
+      key: (col.key || '').trim(),
+      label: (col.label || '').trim(),
+      type: (col.type || '').trim(),
+      color: (col.color || '').trim()
+    }));
+    const finalColsJson = JSON.stringify(cleanColumns);
     serverJs = serverJs.replace('%%SHEET_COLUMNS%%', finalColsJson);
 
     // Remove unused endpoints
