@@ -32,7 +32,7 @@ app.post('/api/generate', (req, res) => {
       qualifiedLabel,
       supabaseUrl, redirectUri,
       useGA4, useGSC, useWC, useSheets, useDocs, useQualified, useAdSpend,
-      useGMB, useDashboardLogin
+      useGMB, useDashboardLogin, ga4ExcludeEvents
     } = config;
 
     const slug     = toSlug(clientName);
