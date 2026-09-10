@@ -27,6 +27,7 @@ app.post('/api/generate', (req, res) => {
 
     const {
       clientName, clientWebsite, clientInitials, brandColor, logoB64, agencyLabel,
+      authMethod, oauthClientId, oauthClientSecret, oauthRedirectUri,
       ga4PropertyId, gscSiteUrl, wcProfileId,
       sheetId, sheetTab, sheetColumns,
       qualifiedLabel,
@@ -179,6 +180,9 @@ app.post('/api/generate', (req, res) => {
     serverJs = serverJs.replace("'1cXnqHBu9OJXA-TIemxTAm8tkKNDOMbY8hWgWlpbi3P4'", `'${sheetId || ''}'`);
     serverJs = serverJs.replace("'dashboard_data'", `'${sheetTab || 'dashboard_data'}'`);
     serverJs = serverJs.replace(/%%SLUG%%/g, slug);
+    // Auth mode
+    const authMode = authMethod || 'service_account';
+    serverJs = serverJs.replace("'%%AUTH_MODE%%'", `'${authMode}'`);
     const excludeEventsStr = (ga4ExcludeEvents || '').trim();
     serverJs = serverJs.replace('%%GA4_EXCLUDE_EVENTS%%', excludeEventsStr);
     indexHtml = indexHtml.replace('%%GA4_EXCLUDE_EVENTS%%', excludeEventsStr);
@@ -234,6 +238,7 @@ app.post('/api/generate', (req, res) => {
 
     // ── Strip unused requires based on enabled features ───────────────────
     const needsSupabase = useDocs || useDashboardLogin;
+
     const needsJwt = useDocs || useDashboardLogin;
     const needsCookieParser = useDocs || useDashboardLogin;
     const needsBcrypt = useDashboardLogin;
@@ -283,7 +288,11 @@ app.post('/api/generate', (req, res) => {
 
     // ── .env.example ──────────────────────────────────────────────────────
     let envExample = `# ${clientName} Dashboard — Environment Variables\n\n`;
-    envExample += `# Google Service Account\nGOOGLE_SERVICE_ACCOUNT_EMAIL=your-service-account@project.iam.gserviceaccount.com\nGOOGLE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\\nYOUR_KEY_HERE\\n-----END PRIVATE KEY-----\\n"\n`;
+    if (authMode === 'oauth') {
+      envExample += `# Google OAuth\nGOOGLE_CLIENT_ID=${oauthClientId || 'your-client-id.apps.googleusercontent.com'}\nGOOGLE_CLIENT_SECRET=${oauthClientSecret || 'your-client-secret'}\nREDIRECT_URI=${oauthRedirectUri || 'https://your-dashboard.vercel.app/auth/callback'}\nGOOGLE_REFRESH_TOKEN=# Get this by visiting /setup after deploying\n`;
+    } else {
+      envExample += `# Google Service Account\nGOOGLE_SERVICE_ACCOUNT_EMAIL=momentum-dashboard@momentum-digital-506700.iam.gserviceaccount.com\nGOOGLE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\\nYOUR_KEY_HERE\\n-----END PRIVATE KEY-----\\n"\n`;
+    }
     if (useWC) envExample += `\n# WhatConverts\nWHATCONVERTS_TOKEN=your_token\nWHATCONVERTS_SECRET=your_secret\n`;
     if (useDashboardLogin || useDocs) {
       envExample += `\n# Supabase\nSUPABASE_URL=${supabaseUrl || 'https://xxxx.supabase.co'}\nSUPABASE_SERVICE_KEY=your_service_key\n`;

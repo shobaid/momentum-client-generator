@@ -216,6 +216,50 @@ textarea:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-lig
         </div>
       </div>
 
+      <!-- Auth Method -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon">🔑</div>
+          <div><div class="card-title">Authentication Method</div><div class="card-desc">How the dashboard connects to Google APIs</div></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:1rem">
+          <div id="auth-sa-card" onclick="setAuthMethod('service_account')" style="border:2px solid var(--blue);border-radius:10px;padding:1rem;cursor:pointer;background:rgba(58,143,212,0.08);transition:all 0.15s">
+            <div style="font-size:22px;margin-bottom:6px">🤖</div>
+            <div style="font-weight:600;font-size:14px;margin-bottom:4px">Service Account</div>
+            <div style="font-size:12px;color:var(--muted)">Add service account email to GA4/GSC. Best when you have admin access.</div>
+          </div>
+          <div id="auth-oauth-card" onclick="setAuthMethod('oauth')" style="border:2px solid var(--border2);border-radius:10px;padding:1rem;cursor:pointer;transition:all 0.15s">
+            <div style="font-size:22px;margin-bottom:6px">👤</div>
+            <div style="font-weight:600;font-size:14px;margin-bottom:4px">OAuth (Your Account)</div>
+            <div style="font-size:12px;color:var(--muted)">Use your own Google account. Best when you have access but can't add service accounts.</div>
+          </div>
+        </div>
+        <div id="auth-sa-fields" style="margin-top:1rem">
+          <div class="hint" style="padding:8px 12px;background:rgba(58,143,212,0.08);border-radius:6px;border:1px solid rgba(58,143,212,0.2);color:#7db8e8">
+            Add <strong>momentum-dashboard@momentum-digital-506700.iam.gserviceaccount.com</strong> as Viewer in GA4 and GSC for this client.
+          </div>
+        </div>
+        <div id="auth-oauth-fields" style="margin-top:1rem;display:none">
+          <div class="hint" style="padding:8px 12px;background:rgba(99,102,241,0.08);border-radius:6px;border:1px solid rgba(99,102,241,0.2);color:#a5b4fc;margin-bottom:12px">
+            After deploying, visit <strong>/setup</strong> on your dashboard → sign in with your Google account → copy the refresh token to Vercel env vars.
+          </div>
+          <div class="field">
+            <label>Google Client ID</label>
+            <input type="text" id="g-oauthClientId" placeholder="your-client-id.apps.googleusercontent.com" style="font-family:var(--mono);font-size:12px">
+            <div class="hint">Google Cloud → APIs & Services → Credentials → OAuth 2.0 Client ID</div>
+          </div>
+          <div class="field">
+            <label>Google Client Secret</label>
+            <input type="password" id="g-oauthClientSecret" placeholder="GOCSPX-..." style="font-family:var(--mono);font-size:12px">
+          </div>
+          <div class="field">
+            <label>Redirect URI</label>
+            <input type="url" id="g-oauthRedirectUri" placeholder="https://your-dashboard.vercel.app/auth/callback" style="font-family:var(--mono);font-size:12px">
+            <div class="hint">Add this exact URL to your OAuth 2.0 client's Authorized redirect URIs in Google Cloud</div>
+          </div>
+        </div>
+      </div>
+
       <!-- Data Sources -->
       <div class="card">
         <div class="card-hd"><div class="card-icon" style="background:#f0fdf4">📡</div><div><div class="card-title">Data Sources</div><div class="card-sub">Toggle on what this client uses</div></div></div>
@@ -517,6 +561,32 @@ function toggleFeat(id) {
 const COLUMN_LETTERS = ['B','C','D','E','F','G'];
 const DEFAULT_COLORS = ['#f87171','#00d084','#4d9fff','#f59e0b','#a78bfa','#06b6d4'];
 
+// ── Auth method ───────────────────────────────────────────────────────────
+let authMethod = 'service_account';
+
+function setAuthMethod(method) {
+  authMethod = method;
+  const saCard = document.getElementById('auth-sa-card');
+  const oaCard = document.getElementById('auth-oauth-card');
+  const saFields = document.getElementById('auth-sa-fields');
+  const oaFields = document.getElementById('auth-oauth-fields');
+  if (method === 'oauth') {
+    saCard.style.border = '2px solid var(--border2)';
+    saCard.style.background = 'transparent';
+    oaCard.style.border = '2px solid #6366f1';
+    oaCard.style.background = 'rgba(99,102,241,0.08)';
+    saFields.style.display = 'none';
+    oaFields.style.display = 'block';
+  } else {
+    saCard.style.border = '2px solid var(--blue)';
+    saCard.style.background = 'rgba(58,143,212,0.08)';
+    oaCard.style.border = '2px solid var(--border2)';
+    oaCard.style.background = 'transparent';
+    saFields.style.display = 'block';
+    oaFields.style.display = 'none';
+  }
+}
+
 function addSheetColumn() {
   const container = document.getElementById('sheetColsContainer');
   const idx = sheetColCount;
@@ -620,6 +690,10 @@ async function generateDashboard() {
     clientInitials: document.getElementById('g-initials').value.trim().toUpperCase(),
     brandColor: document.getElementById('g-brandColor').value,
     agencyLabel: document.getElementById('g-agencyLabel').value.trim(),
+    authMethod: authMethod,
+    oauthClientId: document.getElementById('g-oauthClientId')?.value?.trim() || '',
+    oauthClientSecret: document.getElementById('g-oauthClientSecret')?.value?.trim() || '',
+    oauthRedirectUri: document.getElementById('g-oauthRedirectUri')?.value?.trim() || '',
     ga4PropertyId: document.getElementById('g-ga4Id').value.trim(),
     ga4ExcludeEvents: document.getElementById('g-excludeEvents')?.value?.trim() || '',
     gscSiteUrl: document.getElementById('g-gscUrl').value.trim(),

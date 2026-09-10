@@ -4,8 +4,10 @@ const axios = require('axios');
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const cookieParser = require('cookie-parser');
-const { GoogleAuth } = require('google-auth-library');
+const { GoogleAuth, OAuth2Client } = require('google-auth-library');
 const { google } = require('googleapis');
+
+// ── Auth mode: %%AUTH_MODE%% (service_account or oauth) ───────────────────
 const { createClient } = require('@supabase/supabase-js');
 const bcrypt = require('bcryptjs');
 const path = require('path');
@@ -35,7 +37,23 @@ const supabase = createClient(
 );
 
 // ── Google auth (service account) ─────────────────────────────────────────
-const gauth = new GoogleAuth({
+// ── Google Auth (supports both service account and OAuth) ─────────────────
+const AUTH_MODE = '%%AUTH_MODE%%'; // injected by generator: 'service_account' or 'oauth'
+
+let _oauthClient = null;
+function getOAuthClient() {
+  if (!_oauthClient) {
+    _oauthClient = new OAuth2Client(
+      process.env.GOOGLE_CLIENT_ID,
+      process.env.GOOGLE_CLIENT_SECRET,
+      process.env.REDIRECT_URI || 'https://your-dashboard.vercel.app/auth/callback'
+    );
+    _oauthClient.setCredentials({ refresh_token: process.env.GOOGLE_REFRESH_TOKEN });
+  }
+  return _oauthClient;
+}
+
+const gauth = AUTH_MODE === 'oauth' ? null : new GoogleAuth({
   credentials: {
     client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
     private_key: (() => {
@@ -53,6 +71,11 @@ const gauth = new GoogleAuth({
 });
 
 async function getGAToken() {
+  if (AUTH_MODE === 'oauth') {
+    const client = getOAuthClient();
+    const { token } = await client.getAccessToken();
+    return token;
+  }
   const client = await gauth.getClient();
   const token = await client.getAccessToken();
   return token.token;
@@ -538,6 +561,75 @@ app.post('/api/documents/:id/comments', async (req, res) => {
   if (error) return res.status(500).json({ error: error.message });
   res.json(data);
 });
+
+// ── OAuth Setup (only active when AUTH_MODE === 'oauth') ─────────────────
+if (AUTH_MODE === 'oauth') {
+  app.get('/setup', (req, res) => {
+    const hasToken = !!process.env.GOOGLE_REFRESH_TOKEN;
+    res.send(`<!DOCTYPE html>
+<html>
+<head><title>Dashboard Setup</title>
+<style>body{font-family:system-ui,sans-serif;background:#0f1117;color:#f0ede8;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0}
+.card{background:#1a1d24;border:1px solid #2a2d35;border-radius:12px;padding:2.5rem;max-width:440px;width:100%;text-align:center}
+h1{font-size:22px;margin:0 0 8px}p{color:#9ca3af;font-size:14px;margin:0 0 24px}
+.btn{display:inline-flex;align-items:center;gap:8px;background:#4285f4;color:#fff;border:none;border-radius:8px;padding:12px 24px;font-size:15px;font-weight:600;cursor:pointer;text-decoration:none}
+.btn:hover{background:#3367d6}.success{color:#34d399;font-size:14px;margin-top:16px}
+</style></head>
+<body><div class="card">
+<h1>Dashboard Setup</h1>
+<p>Connect your Google account to authorize this dashboard to pull GA4 and Search Console data.</p>
+${hasToken
+  ? '<div class="success">✅ Google account connected. Dashboard is ready.</div><br><a href="/" class="btn">Go to Dashboard</a>'
+  : '<a href="/auth/google" class="btn"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg> Connect Google Account</a>'
+}
+</div></body></html>`);
+  });
+
+  app.get('/auth/google', (req, res) => {
+    const client = getOAuthClient();
+    const url = client.generateAuthUrl({
+      access_type: 'offline',
+      prompt: 'consent',
+      scope: [
+        'https://www.googleapis.com/auth/analytics.readonly',
+        'https://www.googleapis.com/auth/webmasters.readonly',
+        'https://www.googleapis.com/auth/spreadsheets.readonly'
+      ]
+    });
+    res.redirect(url);
+  });
+
+  app.get('/auth/callback', async (req, res) => {
+    try {
+      const { code } = req.query;
+      const client = getOAuthClient();
+      const { tokens } = await client.getToken(code);
+      // Show the refresh token to copy into Vercel env vars
+      res.send(`<!DOCTYPE html>
+<html>
+<head><title>OAuth Complete</title>
+<style>body{font-family:system-ui,sans-serif;background:#0f1117;color:#f0ede8;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0}
+.card{background:#1a1d24;border:1px solid #2a2d35;border-radius:12px;padding:2.5rem;max-width:540px;width:100%}
+h1{font-size:20px;margin:0 0 16px;color:#34d399}
+.token{background:#0f1117;border:1px solid #2a2d35;border-radius:6px;padding:12px;font-family:monospace;font-size:12px;word-break:break-all;margin:12px 0}
+p{color:#9ca3af;font-size:13px;margin:8px 0}
+.step{background:rgba(52,211,153,0.08);border:1px solid rgba(52,211,153,0.2);border-radius:8px;padding:12px;margin:12px 0;font-size:13px}
+</style></head>
+<body><div class="card">
+<h1>✅ Google Account Connected!</h1>
+<p>Copy the refresh token below and add it as a Vercel environment variable:</p>
+<div class="step">
+  <strong>Variable name:</strong> GOOGLE_REFRESH_TOKEN<br>
+  <strong>Value:</strong>
+  <div class="token">${tokens.refresh_token || '(already set — token refreshed)'}</div>
+</div>
+<p>After adding it in Vercel → Settings → Environment Variables, redeploy the project. Then visit <a href="/setup" style="color:#4285f4">/setup</a> to confirm.</p>
+</div></body></html>`);
+    } catch(e) {
+      res.status(500).send('OAuth error: ' + e.message);
+    }
+  });
+}
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`\n✅ PennPain Dashboard running at http://localhost:${PORT}\n`));
