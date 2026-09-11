@@ -33,7 +33,7 @@ app.post('/api/generate', (req, res) => {
       qualifiedLabel,
       supabaseUrl, redirectUri,
       useGA4, useGSC, useWC, useSheets, useDocs, useQualified, useAdSpend,
-      useGMB, useDashboardLogin, ga4ExcludeEvents
+      useGMB, useDashboardLogin, gmbSource, gmbTab, gmbSheetId, ga4ExcludeEvents
     } = config;
 
     const slug     = toSlug(clientName);
@@ -130,7 +130,11 @@ app.post('/api/generate', (req, res) => {
         <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 14px;font-size:12px;color:var(--muted);font-family:var(--font-mono);margin-bottom:1.5rem">💡 Data from Agency Analytics Google Sheets add-on · Refresh the gmb_data sheet tab to update</div>
       </div>`);
 
-      indexHtml = indexHtml.replace('%%GMB_FETCH%%', `fetch(\`/api/gmb?start_date=\${start}&end_date=\${end}\`).then(r=>r.json()).catch(()=>({rows:[],totals:{}}))`);
+      indexHtml = indexHtml.replace('%%GMB_FETCH%%', `fetch(\`/api/gmb?start_date=\${start}&end_date=\${end}\`).then(r=>r.json()).catch(()=>({rows:[],totals:{},source:'${gmbSrc}'}))`);
+      // Update GMB source note in section
+      if ('${gmbSrc}' === 'ga4') {
+        indexHtml = indexHtml.replace('Data from Agency Analytics Google Sheets add-on · Refresh the gmb_data sheet tab to update', 'Data from GA4 · GBP locations linked via GA4 → Admin → Google Business Profile');
+      }
     } else {
       indexHtml = indexHtml.replace('%%GMB_NAV%%', '');
       indexHtml = indexHtml.replace('%%GMB_SECTION%%', '');
@@ -184,6 +188,14 @@ app.post('/api/generate', (req, res) => {
     const authMode = authMethod || 'service_account';
     serverJs = serverJs.replace("'%%AUTH_MODE%%'", `'${authMode}'`);
     const excludeEventsStr = (ga4ExcludeEvents || '').trim();
+    // GMB source + tab
+    const gmbSrc = gmbSource || 'sheets';
+    const gmbTabName = gmbTab || 'gmb_data';
+    serverJs = serverJs.replace("'%%GMB_SOURCE%%'", `'${gmbSrc}'`);
+    serverJs = serverJs.replace("'%%GMB_SHEET_TAB%%'", `'${gmbTabName}'`);
+    if (gmbSrc === 'ga4') {
+      indexHtml = indexHtml.replace('Data from Agency Analytics Google Sheets add-on · Refresh the gmb_data sheet tab to update', 'Data from GA4 · GBP linked via GA4 → Admin → Google Business Profile linking');
+    }
     serverJs = serverJs.replace('%%GA4_EXCLUDE_EVENTS%%', excludeEventsStr);
     indexHtml = indexHtml.replace('%%GA4_EXCLUDE_EVENTS%%', excludeEventsStr);
     serverJs = serverJs.replace(/%%AGENCY_LABEL%%/g, agency);

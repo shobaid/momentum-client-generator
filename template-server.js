@@ -360,15 +360,115 @@ app.get('/api/adspend', async (req, res) => {
   }
 });
 
-// ── Google Business Profile (via Google Sheets) ────────────────────────────
+// ── Google Business Profile (Sheets or GA4) ───────────────────────────────
+const GMB_SOURCE = '%%GMB_SOURCE%%'; // 'sheets' or 'ga4'
+const GMB_SHEET_TAB = '%%GMB_SHEET_TAB%%'; // tab name for sheets mode
+
 app.get('/api/gmb', async (req, res) => {
+  const { start_date, end_date } = req.query;
+
+  // ── GA4 mode ───────────────────────────────────────────────────────────
+  if (GMB_SOURCE === 'ga4') {
+    try {
+      const token = await getGAToken();
+      const gbpEvents = [
+        'business_impressions_desktop_maps',
+        'business_impressions_desktop_search',
+        'business_impressions_mobile_maps',
+        'business_impressions_mobile_search',
+        'business_direction_requests',
+        'business_phone_calls',
+        'business_website_clicks',
+        'business_impressions_maps',
+        'business_impressions_search'
+      ];
+
+      // Fetch totals
+      const totalsRes = await axios.post(
+        `https://analyticsdata.googleapis.com/v1beta/${GA4_PROPERTY}:runReport`,
+        {
+          dateRanges: [{ startDate: start_date, endDate: end_date }],
+          dimensions: [{ name: 'eventName' }],
+          metrics: [{ name: 'eventCount' }],
+          dimensionFilter: { filter: { fieldName: 'eventName', inListFilter: { values: gbpEvents } } }
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      // Fetch time series
+      const tsRes = await axios.post(
+        `https://analyticsdata.googleapis.com/v1beta/${GA4_PROPERTY}:runReport`,
+        {
+          dateRanges: [{ startDate: start_date, endDate: end_date }],
+          dimensions: [{ name: 'date' }, { name: 'eventName' }],
+          metrics: [{ name: 'eventCount' }],
+          dimensionFilter: { filter: { fieldName: 'eventName', inListFilter: { values: gbpEvents } } },
+          orderBys: [{ dimension: { dimensionName: 'date' } }]
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      // Build event map
+      const evMap = {};
+      (totalsRes.data.rows || []).forEach(r => {
+        evMap[r.dimensionValues[0].value] = parseInt(r.metricValues[0].value) || 0;
+      });
+
+      // Build daily rows from time series
+      const dateMap = {};
+      (tsRes.data.rows || []).forEach(r => {
+        const date = r.dimensionValues[0].value;
+        const ev = r.dimensionValues[1].value;
+        if (!dateMap[date]) dateMap[date] = {};
+        dateMap[date][ev] = parseInt(r.metricValues[0].value) || 0;
+      });
+
+      const rows = Object.keys(dateMap).sort().map(date => {
+        const d = dateMap[date];
+        const impressions_desktop_maps = d['business_impressions_desktop_maps'] || 0;
+        const impressions_desktop_search = d['business_impressions_desktop_search'] || 0;
+        const impressions_mobile_maps = d['business_impressions_mobile_maps'] || 0;
+        const impressions_mobile_search = d['business_impressions_mobile_search'] || 0;
+        return {
+          date: `${date.slice(0,4)}-${date.slice(4,6)}-${date.slice(6,8)}`,
+          impressions: impressions_desktop_maps + impressions_desktop_search + impressions_mobile_maps + impressions_mobile_search + (d['business_impressions_maps']||0) + (d['business_impressions_search']||0),
+          interactions: (d['business_direction_requests']||0) + (d['business_phone_calls']||0) + (d['business_website_clicks']||0),
+          calls: d['business_phone_calls'] || 0,
+          directions: d['business_direction_requests'] || 0,
+          website_clicks: d['business_website_clicks'] || 0,
+          impressions_desktop_maps,
+          impressions_desktop_search,
+          impressions_mobile_maps,
+          impressions_mobile_search
+        };
+      });
+
+      const totals = rows.reduce((acc, r) => {
+        acc.impressions += r.impressions;
+        acc.interactions += r.interactions;
+        acc.calls += r.calls;
+        acc.directions += r.directions;
+        acc.website_clicks += r.website_clicks;
+        acc.desktop_maps += r.impressions_desktop_maps;
+        acc.desktop_search += r.impressions_desktop_search;
+        acc.mobile_maps += r.impressions_mobile_maps;
+        acc.mobile_search += r.impressions_mobile_search;
+        return acc;
+      }, { impressions:0, interactions:0, calls:0, directions:0, website_clicks:0, desktop_maps:0, desktop_search:0, mobile_maps:0, mobile_search:0 });
+
+      return res.json({ rows, totals, source: 'ga4' });
+    } catch(e) {
+      return res.json({ error: e.message, rows: [], totals: {}, source: 'ga4' });
+    }
+  }
+
+  // ── Sheets mode ───────────────────────────────────────────────────────
   try {
-    const { start_date, end_date } = req.query;
     const authClient = await gauth.getClient();
     const sheets = google.sheets({ version: 'v4', auth: authClient });
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SHEET_ID,
-      range: 'gmb_data!A:J'
+      range: `${GMB_SHEET_TAB}!A:J`
     });
     const rows = response.data.values || [];
     if (rows.length < 2) return res.json({ rows: [], totals: {} });

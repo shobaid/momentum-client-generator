@@ -356,8 +356,37 @@ textarea:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-lig
           </div>
 
           <div class="feature-row" style="margin-top:8px">
-            <div class="feature-info"><span style="font-size:18px">📍</span><div><div class="feature-name">Google Business Profile</div><div class="feature-desc">GBP impressions, calls, directions, website clicks — exported from Agency Analytics to a gmb_data sheet tab</div></div></div>
+            <div class="feature-info"><span style="font-size:18px">📍</span><div><div class="feature-name">Google Business Profile</div><div class="feature-desc">Impressions, calls, directions, website clicks — via Sheets or GA4 linked profiles</div></div></div>
             <button class="toggle" id="tog-gmb" onclick="toggleFeat('gmb')"></button>
+          </div>
+          <div class="sub-fields" id="sub-gmb">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+              <div id="gmb-src-sheets" onclick="setGmbSource('sheets')" style="border:2px solid var(--blue);border-radius:8px;padding:10px;cursor:pointer;background:rgba(58,143,212,0.08);transition:all 0.15s">
+                <div style="font-weight:600;font-size:13px;margin-bottom:3px">📊 Google Sheets</div>
+                <div style="font-size:11px;color:var(--muted)">Agency Analytics export to a sheet tab</div>
+              </div>
+              <div id="gmb-src-ga4" onclick="setGmbSource('ga4')" style="border:2px solid var(--border2);border-radius:8px;padding:10px;cursor:pointer;transition:all 0.15s">
+                <div style="font-weight:600;font-size:13px;margin-bottom:3px">📈 GA4 Events</div>
+                <div style="font-size:11px;color:var(--muted)">GBP linked to GA4 — automatic, no sheet needed</div>
+              </div>
+            </div>
+            <div id="gmb-sheets-fields">
+              <div class="field">
+                <label>GMB Google Sheet ID</label>
+                <input type="text" id="g-gmbSheetId" placeholder="Leave blank to use main Sheet ID" style="font-family:var(--mono)">
+                <div class="hint">If GBP data is in a different Google Sheet, paste its ID here. Otherwise leave blank.</div>
+              </div>
+              <div class="field">
+                <label>GMB Sheet Tab Name</label>
+                <input type="text" id="g-gmbTab" placeholder="gmb_data" value="gmb_data" style="font-family:var(--mono)">
+                <div class="hint">The tab name where Agency Analytics exports GBP data</div>
+              </div>
+            </div>
+            <div id="gmb-ga4-fields" style="display:none">
+              <div class="hint" style="padding:8px 12px;background:#f0fdf4;border-radius:6px;border:1px solid #bbf7d0;color:#166534">
+                ✅ GBP data pulled from GA4 events automatically. Make sure both GBP locations are linked in GA4 → Admin → Google Business Profile linking. Data appears 24-48 hours after linking.
+              </div>
+            </div>
           </div>
 
           <div class="feature-row" style="margin-top:8px">
@@ -706,7 +735,10 @@ async function generateDashboard() {
     redirectUri: document.getElementById('g-redirectUri').value.trim() || 'http://localhost:3000/auth/callback',
     useGA4: src.ga4, useGSC: src.gsc, useWC: src.wc, useSheets: src.sheets,
     useDocs: feat.docs, useQualified: feat.qualified, useAdSpend: feat.adspend,
-    useGMB: feat.gmb, useDashboardLogin: feat.dashLogin
+    useGMB: feat.gmb, useDashboardLogin: feat.dashLogin,
+    gmbSource: gmbSource,
+    gmbTab: document.getElementById('g-gmbTab')?.value?.trim() || 'gmb_data',
+    gmbSheetId: document.getElementById('g-gmbSheetId')?.value?.trim() || null
   };
 
   try {
