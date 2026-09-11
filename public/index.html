@@ -577,6 +577,32 @@ function toggleSrc(id) {
   document.getElementById('sub-'+id).classList.toggle('open', src[id]);
 }
 
+// ── GMB source ────────────────────────────────────────────────────────────
+let gmbSource = 'sheets';
+
+function setGmbSource(source) {
+  gmbSource = source;
+  const sheetsCard = document.getElementById('gmb-src-sheets');
+  const ga4Card = document.getElementById('gmb-src-ga4');
+  const sheetsFields = document.getElementById('gmb-sheets-fields');
+  const ga4Fields = document.getElementById('gmb-ga4-fields');
+  if (source === 'ga4') {
+    sheetsCard.style.border = '2px solid var(--border2)';
+    sheetsCard.style.background = 'transparent';
+    ga4Card.style.border = '2px solid #34d399';
+    ga4Card.style.background = 'rgba(52,211,153,0.08)';
+    if (sheetsFields) sheetsFields.style.display = 'none';
+    if (ga4Fields) ga4Fields.style.display = 'block';
+  } else {
+    sheetsCard.style.border = '2px solid var(--blue)';
+    sheetsCard.style.background = 'rgba(58,143,212,0.08)';
+    ga4Card.style.border = '2px solid var(--border2)';
+    ga4Card.style.background = 'transparent';
+    if (sheetsFields) sheetsFields.style.display = 'block';
+    if (ga4Fields) ga4Fields.style.display = 'none';
+  }
+}
+
 function toggleFeat(id) {
   feat[id] = !feat[id];
   document.getElementById('tog-'+id).classList.toggle('on', feat[id]);
@@ -614,6 +640,42 @@ function setAuthMethod(method) {
     saFields.style.display = 'block';
     oaFields.style.display = 'none';
   }
+}
+
+// ── Dashboard users ──────────────────────────────────────────────────────
+let dashUserCount = 0;
+
+function addDashUser() {
+  dashUserCount++;
+  const id = dashUserCount;
+  const div = document.createElement('div');
+  div.className = 'col-row';
+  div.id = `dash-user-${id}`;
+  div.innerHTML = `
+    <div class="field" style="margin-bottom:0;flex:2;min-width:160px"><label>Email</label><input type="email" placeholder="user@email.com" id="du-email-${id}"></div>
+    <div class="field" style="margin-bottom:0;flex:1;min-width:100px"><label>Name</label><input type="text" placeholder="Full Name" id="du-name-${id}"></div>
+    <div class="field" style="margin-bottom:0;flex:1;min-width:120px"><label>Password</label><input type="password" placeholder="••••••••" id="du-pass-${id}"></div>
+    <div class="field" style="margin-bottom:0;flex:0 0 100px"><label>Role</label>
+      <select id="du-role-${id}" style="width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--radius-sm);color:var(--text);padding:9px 12px;font-size:13px">
+        <option value="viewer">Viewer</option><option value="admin">Admin</option>
+      </select>
+    </div>
+    <button class="remove-col" onclick="document.getElementById('dash-user-${id}').remove()" title="Remove">✕</button>
+  `;
+  document.getElementById('dashUsersContainer').appendChild(div);
+}
+
+function getDashUsers() {
+  const users = [];
+  document.querySelectorAll('[id^="dash-user-"]').forEach(row => {
+    const id = row.id.replace('dash-user-','');
+    const email = document.getElementById(`du-email-${id}`)?.value?.trim();
+    const name = document.getElementById(`du-name-${id}`)?.value?.trim();
+    const password = document.getElementById(`du-pass-${id}`)?.value;
+    const role = document.getElementById(`du-role-${id}`)?.value || 'viewer';
+    if (email && password) users.push({ email, name, password, role });
+  });
+  return users;
 }
 
 function addSheetColumn() {
