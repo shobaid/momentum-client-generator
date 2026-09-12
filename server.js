@@ -218,7 +218,7 @@ app.post('/api/generate', (req, res) => {
       ? `{id:'np-appts',label:'${qlabel}',value:fmt(cachedData.npData?.total||0),color:'#00d084',noComp:true,sub:true,path:'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z',sparkData:(ts.rows||[]).map((_,i)=>i),subLabel:'WhatConverts · ${qlabel}'}`
       : 'null';
     const adSpendCard = (useSheets || useAdSpend)
-      ? `{id:'ad-spend',label:'Ad Spend',value:'$'+(cachedData.adSpendData?.totals ? Object.values(cachedData.adSpendData.totals)[0] || 0 : 0).toLocaleString(),color:'#f87171',noComp:true,sub:true,path:'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z',sparkData:(cachedData.adSpendData?.rows||[]).map(r=>r[Object.keys(r)[3]]||0),subLabel:'Google Ads · from sheet'}`
+      ? '{id:' + JSON.stringify('ad-spend') + ',label:' + JSON.stringify('Ad Spend') + ',value:("$"+(cachedData.adSpendData?.totals?Object.values(cachedData.adSpendData.totals)[0]||0:0).toLocaleString()),color:' + JSON.stringify('#f87171') + ',noComp:true,sub:true,path:' + JSON.stringify('M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z') + ',sparkData:(cachedData.adSpendData?.rows||[]).map(r=>r[Object.keys(r)[3]]||0),subLabel:' + JSON.stringify('from sheet') + '}'
       : 'null';
 
     indexHtml = indexHtml.replace('    %%WC_LEADS_CARD%%', '    ' + wcLeadsCard + ',');
