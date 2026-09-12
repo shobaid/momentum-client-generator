@@ -130,11 +130,7 @@ app.post('/api/generate', (req, res) => {
         <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 14px;font-size:12px;color:var(--muted);font-family:var(--font-mono);margin-bottom:1.5rem">💡 Data from Agency Analytics Google Sheets add-on · Refresh the gmb_data sheet tab to update</div>
       </div>`);
 
-      indexHtml = indexHtml.replace('%%GMB_FETCH%%', `fetch(\`/api/gmb?start_date=\${start}&end_date=\${end}\`).then(r=>r.json()).catch(()=>({rows:[],totals:{},source:'${gmbSrc}'}))`);
-      // Update GMB source note in section
-      if ('${gmbSrc}' === 'ga4') {
-        indexHtml = indexHtml.replace('Data from Agency Analytics Google Sheets add-on · Refresh the gmb_data sheet tab to update', 'Data from GA4 · GBP locations linked via GA4 → Admin → Google Business Profile');
-      }
+      indexHtml = indexHtml.replace('%%GMB_FETCH%%', `fetch(\`/api/gmb?start_date=\${start}&end_date=\${end}\`).then(r=>r.json()).catch(()=>({rows:[],totals:{}}))`);
     } else {
       indexHtml = indexHtml.replace('%%GMB_NAV%%', '');
       indexHtml = indexHtml.replace('%%GMB_SECTION%%', '');
