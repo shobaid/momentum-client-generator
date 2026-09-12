@@ -148,11 +148,16 @@ app.post('/api/generate', (req, res) => {
         '\n        </div>';
       indexHtml = indexHtml.replace('        %%SHEET_KPI_CARDS%%', kpiCardsHtml);
 
-      const kpiJs = sheetColumns.map(col =>
-        `    const el_${col.key} = document.getElementById('sheet-kpi-${col.key}');\n` +
-        `    if (el_${col.key}) el_${col.key}.textContent = adSpend.totals ? ` +
-        `(${col.type === 'currency' ? `'$' + (adSpend.totals['${col.key}'] || 0).toLocaleString()` : `fmt(adSpend.totals['${col.key}'] || 0)`}) : '–';`
-      ).join('\n');
+      const kpiJs = sheetColumns.map(col => {
+        const elVar = `el_${col.key}`;
+        const getValue = col.type === 'currency'
+          ? `'$' + (adSpend.totals['${col.key}'] || 0).toLocaleString()`
+          : `fmt(adSpend.totals['${col.key}'] || 0)`;
+        return [
+          `    const ${elVar} = document.getElementById('sheet-kpi-${col.key}');`,
+          `    if (${elVar}) ${elVar}.textContent = adSpend.totals ? (${getValue}) : '\u2013';`
+        ].join('\n');
+      }).join('\n');
       indexHtml = indexHtml.replace('    %%SHEET_KPI_JS%%', kpiJs);
     } else {
       indexHtml = indexHtml.replace('        %%SHEET_KPI_CARDS%%', '');
